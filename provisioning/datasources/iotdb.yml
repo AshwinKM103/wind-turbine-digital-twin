@@ -1,0 +1,25 @@
+apiVersion: 1
+
+# Provisions the Apache IoTDB REST datasource automatically on Grafana
+# startup so the dashboard's panels resolve without a manual "Import" step.
+# The iotdb-datasource plugin is pre-installed in provisioning/Dockerfile.grafana.
+datasources:
+  - name: IoTDB REST
+    uid: iotdb-rest
+    type: apache-iotdb-datasource
+    access: proxy
+    url: http://iotdb:18080
+    isDefault: true
+    editable: true
+    jsonData:
+      # NOTE: this plugin (apache-iotdb-datasource v1.0.1) reads the IoTDB
+      # REST URL from jsonData.url, NOT Grafana's standard top-level
+      # datasource `url` field -- leaving this unset causes the plugin's
+      # backend to panic on an empty string in its URL parser
+      # ("slice bounds out of range [-1:]") and every query/health-check
+      # fails. Confirmed by inspecting jsonData.* references in the
+      # plugin's own module.js.
+      url: http://iotdb:18080
+      username: $IOTDB_USER
+    secureJsonData:
+      password: $IOTDB_PASSWORD
