@@ -1,0 +1,542 @@
+{
+  "metadata": {
+    "version": "1.0",
+    "description": "Anomaly detection thresholds for wind turbine sensors. State-aware (IDLE/RAMP_UP/STEADY_STATE/RAMP_DOWN) with severity levels.",
+    "last_updated": "2026-09-06",
+    "author": "Digital Twin Team"
+  },
+  "global_settings": {
+    "enable_anomaly_detection": true,
+    "enable_correlation_checks": true,
+    "enable_drift_detection": true,
+    "grace_period_minutes": 5,
+    "confirmation_count": 3,
+    "drift_window_minutes": 60,
+    "max_false_positive_rate_percent": 5
+  },
+  "sensors": {
+    "PT_109A": {
+      "name": "Inlet Pressure A",
+      "unit": "bar",
+      "category": "pressure",
+      "data_type": "float",
+      "thresholds": {
+        "IDLE": {
+          "min": 30.0,
+          "max": 33.0,
+          "warning_min": 31.0,
+          "warning_max": 32.5,
+          "critical_min": 30.5,
+          "critical_max": 32.8
+        },
+        "RAMP_UP": {
+          "min": 31.0,
+          "max": 34.0,
+          "warning_min": 31.5,
+          "warning_max": 33.5,
+          "critical_min": 31.0,
+          "critical_max": 34.0
+        },
+        "STEADY_STATE": {
+          "min": 32.0,
+          "max": 34.0,
+          "warning_min": 32.3,
+          "warning_max": 33.7,
+          "critical_min": 32.0,
+          "critical_max": 34.0
+        },
+        "RAMP_DOWN": {
+          "min": 30.5,
+          "max": 33.5,
+          "warning_min": 31.0,
+          "warning_max": 33.2,
+          "critical_min": 30.5,
+          "critical_max": 33.5
+        }
+      },
+      "anomaly_rules": [
+        {
+          "type": "out_of_range",
+          "enabled": true,
+          "severity": "critical",
+          "description": "Pressure drops below 30 bar (system failure indication)"
+        },
+        {
+          "type": "drift",
+          "enabled": true,
+          "severity": "warning",
+          "drift_threshold_per_hour": 0.5,
+          "description": "Pressure drifting rapidly (sensor degradation?)"
+        },
+        {
+          "type": "stuck_value",
+          "enabled": true,
+          "severity": "warning",
+          "stuck_duration_seconds": 300,
+          "description": "Pressure unchanged for 5+ minutes (sensor stuck?)"
+        }
+      ]
+    },
+    "PT_110A": {
+      "name": "Inlet Pressure B",
+      "unit": "kg/cm²",
+      "category": "pressure",
+      "data_type": "float",
+      "thresholds": {
+        "IDLE": {
+          "min": 3.0,
+          "max": 3.5,
+          "warning_min": 3.1,
+          "warning_max": 3.4,
+          "critical_min": 3.0,
+          "critical_max": 3.5
+        },
+        "RAMP_UP": {
+          "min": 3.1,
+          "max": 3.6,
+          "warning_min": 3.2,
+          "warning_max": 3.5,
+          "critical_min": 3.1,
+          "critical_max": 3.6
+        },
+        "STEADY_STATE": {
+          "min": 3.2,
+          "max": 3.6,
+          "warning_min": 3.25,
+          "warning_max": 3.55,
+          "critical_min": 3.2,
+          "critical_max": 3.6
+        },
+        "RAMP_DOWN": {
+          "min": 3.0,
+          "max": 3.5,
+          "warning_min": 3.1,
+          "warning_max": 3.4,
+          "critical_min": 3.0,
+          "critical_max": 3.5
+        }
+      },
+      "anomaly_rules": [
+        {
+          "type": "out_of_range",
+          "enabled": true,
+          "severity": "critical"
+        },
+        {
+          "type": "drift",
+          "enabled": true,
+          "severity": "warning",
+          "drift_threshold_per_hour": 0.1
+        }
+      ]
+    },
+    "TT_109A": {
+      "name": "Gearbox Bearing A Temperature",
+      "unit": "°C",
+      "category": "temperature",
+      "data_type": "float",
+      "thresholds": {
+        "IDLE": {
+          "min": 40.0,
+          "max": 70.0,
+          "warning_min": 45.0,
+          "warning_max": 65.0,
+          "critical_min": 35.0,
+          "critical_max": 75.0
+        },
+        "RAMP_UP": {
+          "min": 50.0,
+          "max": 95.0,
+          "warning_min": 55.0,
+          "warning_max": 90.0,
+          "critical_min": 45.0,
+          "critical_max": 100.0
+        },
+        "STEADY_STATE": {
+          "min": 70.0,
+          "max": 90.0,
+          "warning_min": 75.0,
+          "warning_max": 85.0,
+          "critical_min": 65.0,
+          "critical_max": 95.0
+        },
+        "RAMP_DOWN": {
+          "min": 50.0,
+          "max": 80.0,
+          "warning_min": 55.0,
+          "warning_max": 75.0,
+          "critical_min": 45.0,
+          "critical_max": 85.0
+        }
+      },
+      "anomaly_rules": [
+        {
+          "type": "out_of_range",
+          "enabled": true,
+          "severity": "critical",
+          "description": "Gearbox bearing temp critical (bearing failure risk)"
+        },
+        {
+          "type": "rapid_rise",
+          "enabled": true,
+          "severity": "critical",
+          "rise_threshold_per_minute": 2.0,
+          "duration_minutes": 5,
+          "description": "Temperature rising >2°C/min for 5 min (bearing distress)"
+        },
+        {
+          "type": "drift",
+          "enabled": true,
+          "severity": "warning",
+          "drift_threshold_per_hour": 5.0,
+          "description": "Temperature drifting (sensor calibration issue or bearing degradation)"
+        }
+      ]
+    },
+    "TT_110A": {
+      "name": "Gearbox Bearing B Temperature",
+      "unit": "°C",
+      "category": "temperature",
+      "data_type": "float",
+      "thresholds": {
+        "IDLE": {
+          "min": 40.0,
+          "max": 70.0,
+          "warning_min": 45.0,
+          "warning_max": 65.0,
+          "critical_min": 35.0,
+          "critical_max": 75.0
+        },
+        "RAMP_UP": {
+          "min": 50.0,
+          "max": 95.0,
+          "warning_min": 55.0,
+          "warning_max": 90.0,
+          "critical_min": 45.0,
+          "critical_max": 100.0
+        },
+        "STEADY_STATE": {
+          "min": 70.0,
+          "max": 90.0,
+          "warning_min": 75.0,
+          "warning_max": 85.0,
+          "critical_min": 65.0,
+          "critical_max": 95.0
+        },
+        "RAMP_DOWN": {
+          "min": 50.0,
+          "max": 80.0,
+          "warning_min": 55.0,
+          "warning_max": 75.0,
+          "critical_min": 45.0,
+          "critical_max": 85.0
+        }
+      },
+      "anomaly_rules": [
+        {
+          "type": "out_of_range",
+          "enabled": true,
+          "severity": "critical"
+        },
+        {
+          "type": "rapid_rise",
+          "enabled": true,
+          "severity": "critical",
+          "rise_threshold_per_minute": 2.0,
+          "duration_minutes": 5
+        }
+      ]
+    },
+    "TURBINE_SPEED_RPM": {
+      "name": "Turbine Rotor Speed",
+      "unit": "RPM",
+      "category": "operational",
+      "data_type": "float",
+      "thresholds": {
+        "IDLE": {
+          "min": -100.0,
+          "max": 500.0,
+          "warning_min": -50.0,
+          "warning_max": 300.0,
+          "critical_min": -100.0,
+          "critical_max": 600.0
+        },
+        "RAMP_UP": {
+          "min": 500.0,
+          "max": 13000.0,
+          "warning_min": 1000.0,
+          "warning_max": 12000.0,
+          "critical_min": 100.0,
+          "critical_max": 14000.0
+        },
+        "STEADY_STATE": {
+          "min": 11000.0,
+          "max": 12500.0,
+          "warning_min": 11500.0,
+          "warning_max": 12000.0,
+          "critical_min": 10500.0,
+          "critical_max": 12800.0
+        },
+        "RAMP_DOWN": {
+          "min": 500.0,
+          "max": 12000.0,
+          "warning_min": 1000.0,
+          "warning_max": 11000.0,
+          "critical_min": 100.0,
+          "critical_max": 12500.0
+        }
+      },
+      "anomaly_rules": [
+        {
+          "type": "out_of_range",
+          "enabled": true,
+          "severity": "critical",
+          "description": "RPM out of expected range for current state"
+        },
+        {
+          "type": "stuck_value",
+          "enabled": true,
+          "severity": "critical",
+          "stuck_duration_seconds": 600,
+          "description": "RPM unchanged for 10+ minutes (stalled or sensor failure)"
+        }
+      ]
+    },
+    "GB_TRQ": {
+      "name": "Gearbox Torque",
+      "unit": "kN·m",
+      "category": "operational",
+      "data_type": "float",
+      "thresholds": {
+        "IDLE": {
+          "min": -0.5,
+          "max": 0.5,
+          "warning_min": -0.3,
+          "warning_max": 0.3,
+          "critical_min": -1.0,
+          "critical_max": 1.0
+        },
+        "RAMP_UP": {
+          "min": 0.1,
+          "max": 8.0,
+          "warning_min": 0.5,
+          "warning_max": 7.5,
+          "critical_min": 0.0,
+          "critical_max": 9.0
+        },
+        "STEADY_STATE": {
+          "min": 6.0,
+          "max": 8.0,
+          "warning_min": 6.5,
+          "warning_max": 7.5,
+          "critical_min": 5.5,
+          "critical_max": 8.5
+        },
+        "RAMP_DOWN": {
+          "min": 0.1,
+          "max": 7.0,
+          "warning_min": 0.5,
+          "warning_max": 6.5,
+          "critical_min": 0.0,
+          "critical_max": 8.0
+        }
+      },
+      "anomaly_rules": [
+        {
+          "type": "out_of_range",
+          "enabled": true,
+          "severity": "warning"
+        }
+      ]
+    },
+    "XT_600": {
+      "name": "Gearbox Vibration X",
+      "unit": "mm/s",
+      "category": "vibration",
+      "data_type": "float",
+      "thresholds": {
+        "IDLE": {
+          "min": 0.0,
+          "max": 2.0,
+          "warning_min": 0.5,
+          "warning_max": 1.5,
+          "critical_min": 0.0,
+          "critical_max": 3.0
+        },
+        "RAMP_UP": {
+          "min": 0.5,
+          "max": 7.0,
+          "warning_min": 1.0,
+          "warning_max": 6.0,
+          "critical_min": 0.2,
+          "critical_max": 8.0
+        },
+        "STEADY_STATE": {
+          "min": 1.0,
+          "max": 5.0,
+          "warning_min": 1.5,
+          "warning_max": 4.5,
+          "critical_min": 0.8,
+          "critical_max": 6.0
+        },
+        "RAMP_DOWN": {
+          "min": 0.5,
+          "max": 6.0,
+          "warning_min": 1.0,
+          "warning_max": 5.0,
+          "critical_min": 0.2,
+          "critical_max": 7.0
+        }
+      },
+      "anomaly_rules": [
+        {
+          "type": "out_of_range",
+          "enabled": true,
+          "severity": "warning",
+          "description": "Vibration exceeds safe operating range"
+        },
+        {
+          "type": "rapid_increase",
+          "enabled": true,
+          "severity": "critical",
+          "increase_threshold_percent": 50,
+          "baseline_window_minutes": 10,
+          "description": "Vibration increased >50% vs 10-min baseline (bearing wear?)"
+        }
+      ]
+    },
+    "XT_601": {
+      "name": "Gearbox Vibration Y",
+      "unit": "mm/s",
+      "category": "vibration",
+      "data_type": "float",
+      "thresholds": {
+        "IDLE": {
+          "min": 0.0,
+          "max": 2.0,
+          "warning_min": 0.5,
+          "warning_max": 1.5,
+          "critical_min": 0.0,
+          "critical_max": 3.0
+        },
+        "RAMP_UP": {
+          "min": 0.5,
+          "max": 7.0,
+          "warning_min": 1.0,
+          "warning_max": 6.0,
+          "critical_min": 0.2,
+          "critical_max": 8.0
+        },
+        "STEADY_STATE": {
+          "min": 1.0,
+          "max": 5.0,
+          "warning_min": 1.5,
+          "warning_max": 4.5,
+          "critical_min": 0.8,
+          "critical_max": 6.0
+        },
+        "RAMP_DOWN": {
+          "min": 0.5,
+          "max": 6.0,
+          "warning_min": 1.0,
+          "warning_max": 5.0,
+          "critical_min": 0.2,
+          "critical_max": 7.0
+        }
+      },
+      "anomaly_rules": [
+        {
+          "type": "out_of_range",
+          "enabled": true,
+          "severity": "warning"
+        }
+      ]
+    }
+  },
+  "correlation_rules": [
+    {
+      "id": "gearbox_bearing_temp_corr",
+      "name": "Gearbox Bearing Temperature Correlation",
+      "description": "Both bearing temps should track within 5°C under normal operation",
+      "sensor_pairs": ["TT_109A", "TT_110A"],
+      "correlation_type": "should_track",
+      "max_divergence": 5.0,
+      "enabled": true,
+      "severity": "warning"
+    },
+    {
+      "id": "gearbox_health_multi",
+      "name": "Gearbox Health (Multi-Sensor)",
+      "description": "If TT_109A > 85°C AND XT_600 > 4.0 mm/s, gearbox is stressed (potential bearing degradation)",
+      "sensor_conditions": [
+        {
+          "sensor": "TT_109A",
+          "operator": ">",
+          "threshold": 85.0,
+          "duration_seconds": 300
+        },
+        {
+          "sensor": "XT_600",
+          "operator": ">",
+          "threshold": 4.0,
+          "duration_seconds": 300
+        }
+      ],
+      "enabled": true,
+      "severity": "warning"
+    },
+    {
+      "id": "pressure_temp_divergence",
+      "name": "Pressure-Temperature Divergence",
+      "description": "Pressure and temperature usually correlate. If they diverge, sensor may be failing.",
+      "sensor_pairs": ["PT_109A", "TT_109A"],
+      "correlation_type": "should_correlate",
+      "correlation_threshold": 0.7,
+      "enabled": true,
+      "severity": "info"
+    }
+  ],
+  "state_definitions": {
+    "IDLE": {
+      "description": "Turbine at rest or spinning freely with minimal load",
+      "typical_rpm_range": [-100, 500],
+      "typical_torque_range": [-0.5, 0.5]
+    },
+    "RAMP_UP": {
+      "description": "Turbine accelerating from idle to operating speed",
+      "typical_rpm_range": [500, 13000],
+      "typical_torque_range": [0.1, 8.0]
+    },
+    "STEADY_STATE": {
+      "description": "Turbine at constant operating speed with stable load",
+      "typical_rpm_range": [11000, 12500],
+      "typical_torque_range": [6.0, 8.0]
+    },
+    "RAMP_DOWN": {
+      "description": "Turbine decelerating from operating speed to idle",
+      "typical_rpm_range": [500, 12000],
+      "typical_torque_range": [0.1, 7.0]
+    }
+  },
+  "alert_routing": {
+    "default": {
+      "channel": "kafka",
+      "topic": "turbine.anomaly.alerts.v1",
+      "retention_minutes": 1440
+    },
+    "critical": {
+      "channels": ["kafka", "webhook"],
+      "webhook_url_env": "ANOMALY_WEBHOOK_URL_CRITICAL",
+      "email_enabled": true,
+      "slack_enabled": true
+    },
+    "warning": {
+      "channels": ["kafka"],
+      "kafka_topic": "turbine.anomaly.alerts.v1"
+    },
+    "info": {
+      "channels": ["kafka"],
+      "kafka_topic": "turbine.anomaly.alerts.v1"
+    }
+  }
+}

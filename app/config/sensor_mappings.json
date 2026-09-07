@@ -1,0 +1,1181 @@
+{
+  "metadata": {
+    "version": "1.0",
+    "description": "Display names, units and operating ranges for the 61 turbine sensor channels. GENERATED from app/src/sensor_profiles.py by app/tools/generate_sensor_mappings.py -- do not edit by hand.",
+    "sensor_count": 61,
+    "source_of_truth": "app/src/sensor_profiles.py"
+  },
+  "categories": {
+    "pressure": [
+      "PT_109A",
+      "PT_110A",
+      "PT_110B",
+      "PT_111B",
+      "PT_111",
+      "PT_112",
+      "PT_162",
+      "PT_161",
+      "PT_160",
+      "PT_120",
+      "PT_111C",
+      "PT_153",
+      "PT_163",
+      "PT_150A",
+      "PT_150B",
+      "PT_201",
+      "PT_253"
+    ],
+    "flow": [
+      "FT_110A",
+      "FT_162"
+    ],
+    "temperature": [
+      "TT_109A",
+      "TT_110A",
+      "TT_110B",
+      "TT_111",
+      "TT_112",
+      "TT_162",
+      "TT_161",
+      "TT_160",
+      "TT_120_R",
+      "TT_120",
+      "TT_111C",
+      "TT_111C_R",
+      "DYNO_WATER_O_L",
+      "TT_163",
+      "TT_150A",
+      "TT_150B",
+      "RTD_219A",
+      "RTD_219B",
+      "RTD_220",
+      "RTD_221",
+      "RTD_200",
+      "RTD_202",
+      "RTD_203",
+      "RTD_204",
+      "RTD_205",
+      "RTD_201"
+    ],
+    "vibration": [
+      "ZT_600",
+      "ZT_601",
+      "XT_600",
+      "XT_601",
+      "XT_602",
+      "XT_603",
+      "XT_604",
+      "XT_605",
+      "XT_606",
+      "XT_607"
+    ],
+    "operational": [
+      "HP_DEMAND",
+      "ACT_POS_FB",
+      "GB_TRQ",
+      "PYRO_T",
+      "PYRO_GB",
+      "TURBINE_SPEED_RPM"
+    ]
+  },
+  "sensors": {
+    "PT_109A": {
+      "display_name": "Inlet Pressure A",
+      "unit": "bar",
+      "grafana_unit": "pressurebar",
+      "category": "pressure",
+      "normal_range": {
+        "min": 30.926,
+        "max": 33.18
+      },
+      "thresholds": {
+        "warning": 33.18,
+        "critical": 33.86
+      },
+      "absolute_range": {
+        "min": 30.926,
+        "max": 33.86
+      }
+    },
+    "PT_110A": {
+      "display_name": "Inlet Pressure B",
+      "unit": "kg/cm2",
+      "grafana_unit": "none",
+      "category": "pressure",
+      "normal_range": {
+        "min": 3.0889,
+        "max": 3.427
+      },
+      "thresholds": {
+        "warning": 3.427,
+        "critical": 3.498
+      },
+      "absolute_range": {
+        "min": 3.0889,
+        "max": 3.498
+      }
+    },
+    "PT_110B": {
+      "display_name": "Inlet Pressure C",
+      "unit": "kg/cm2",
+      "grafana_unit": "none",
+      "category": "pressure",
+      "normal_range": {
+        "min": 2.9889,
+        "max": 3.327
+      },
+      "thresholds": {
+        "warning": 3.327,
+        "critical": 3.396
+      },
+      "absolute_range": {
+        "min": 2.9889,
+        "max": 3.396
+      }
+    },
+    "PT_111B": {
+      "display_name": "Stage 1 Pressure B",
+      "unit": "kg/cm2",
+      "grafana_unit": "none",
+      "category": "pressure",
+      "normal_range": {
+        "min": 2.7852,
+        "max": 3.236
+      },
+      "thresholds": {
+        "warning": 3.236,
+        "critical": 3.304
+      },
+      "absolute_range": {
+        "min": 2.7852,
+        "max": 3.304
+      }
+    },
+    "PT_111": {
+      "display_name": "Stage 1 Pressure",
+      "unit": "kg/cm2",
+      "grafana_unit": "none",
+      "category": "pressure",
+      "normal_range": {
+        "min": 2.8852,
+        "max": 3.336
+      },
+      "thresholds": {
+        "warning": 3.336,
+        "critical": 3.406
+      },
+      "absolute_range": {
+        "min": 2.8852,
+        "max": 3.406
+      }
+    },
+    "PT_112": {
+      "display_name": "Stage 2 Pressure",
+      "unit": "kg/cm2",
+      "grafana_unit": "none",
+      "category": "pressure",
+      "normal_range": {
+        "min": 2.5852,
+        "max": 3.036
+      },
+      "thresholds": {
+        "warning": 3.036,
+        "critical": 3.1
+      },
+      "absolute_range": {
+        "min": 2.5852,
+        "max": 3.1
+      }
+    },
+    "PT_162": {
+      "display_name": "Lube Oil Pressure",
+      "unit": "kg/cm2",
+      "grafana_unit": "none",
+      "category": "pressure",
+      "normal_range": {
+        "min": 1.7778,
+        "max": 2.454
+      },
+      "thresholds": {
+        "warning": 2.454,
+        "critical": 2.508
+      },
+      "absolute_range": {
+        "min": 1.7778,
+        "max": 2.508
+      }
+    },
+    "PT_161": {
+      "display_name": "Lube Oil Supply Pressure",
+      "unit": "kg/cm2",
+      "grafana_unit": "none",
+      "category": "pressure",
+      "normal_range": {
+        "min": 1.8778,
+        "max": 2.554
+      },
+      "thresholds": {
+        "warning": 2.554,
+        "critical": 2.61
+      },
+      "absolute_range": {
+        "min": 1.8778,
+        "max": 2.61
+      }
+    },
+    "PT_160": {
+      "display_name": "Lube Oil Header Pressure",
+      "unit": "kg/cm2",
+      "grafana_unit": "none",
+      "category": "pressure",
+      "normal_range": {
+        "min": 1.9778,
+        "max": 2.654
+      },
+      "thresholds": {
+        "warning": 2.654,
+        "critical": 2.712
+      },
+      "absolute_range": {
+        "min": 1.9778,
+        "max": 2.712
+      }
+    },
+    "PT_120": {
+      "display_name": "Gearbox Oil Pressure",
+      "unit": "kg/cm2",
+      "grafana_unit": "none",
+      "category": "pressure",
+      "normal_range": {
+        "min": 2.1741,
+        "max": 2.963
+      },
+      "thresholds": {
+        "warning": 2.963,
+        "critical": 3.028
+      },
+      "absolute_range": {
+        "min": 2.1741,
+        "max": 3.028
+      }
+    },
+    "PT_111C": {
+      "display_name": "Stage 1 Pressure C",
+      "unit": "kg/cm2",
+      "grafana_unit": "none",
+      "category": "pressure",
+      "normal_range": {
+        "min": 2.6852,
+        "max": 3.136
+      },
+      "thresholds": {
+        "warning": 3.136,
+        "critical": 3.202
+      },
+      "absolute_range": {
+        "min": 2.6852,
+        "max": 3.202
+      }
+    },
+    "PT_153": {
+      "display_name": "Seal Gas Pressure",
+      "unit": "kg/cm2",
+      "grafana_unit": "none",
+      "category": "pressure",
+      "normal_range": {
+        "min": 1.3889,
+        "max": 1.727
+      },
+      "thresholds": {
+        "warning": 1.727,
+        "critical": 1.764
+      },
+      "absolute_range": {
+        "min": 1.3889,
+        "max": 1.764
+      }
+    },
+    "PT_163": {
+      "display_name": "Lube Oil Return Pressure",
+      "unit": "kg/cm2",
+      "grafana_unit": "none",
+      "category": "pressure",
+      "normal_range": {
+        "min": 0.8889,
+        "max": 1.227
+      },
+      "thresholds": {
+        "warning": 1.227,
+        "critical": 1.254
+      },
+      "absolute_range": {
+        "min": 0.8889,
+        "max": 1.254
+      }
+    },
+    "PT_150A": {
+      "display_name": "Hydraulic Pressure A",
+      "unit": "kg/cm2",
+      "grafana_unit": "none",
+      "category": "pressure",
+      "normal_range": {
+        "min": 118.335,
+        "max": 169.05
+      },
+      "thresholds": {
+        "warning": 169.05,
+        "critical": 172.8
+      },
+      "absolute_range": {
+        "min": 118.335,
+        "max": 172.8
+      }
+    },
+    "PT_150B": {
+      "display_name": "Hydraulic Pressure B",
+      "unit": "kg/cm2",
+      "grafana_unit": "none",
+      "category": "pressure",
+      "normal_range": {
+        "min": 116.372,
+        "max": 165.96
+      },
+      "thresholds": {
+        "warning": 165.96,
+        "critical": 169.64
+      },
+      "absolute_range": {
+        "min": 116.372,
+        "max": 169.64
+      }
+    },
+    "PT_201": {
+      "display_name": "Cooling Water Pressure",
+      "unit": "kg/cm2",
+      "grafana_unit": "none",
+      "category": "pressure",
+      "normal_range": {
+        "min": 2.3852,
+        "max": 2.836
+      },
+      "thresholds": {
+        "warning": 2.836,
+        "critical": 2.896
+      },
+      "absolute_range": {
+        "min": 2.3852,
+        "max": 2.896
+      }
+    },
+    "PT_253": {
+      "display_name": "Dyno Water Pressure",
+      "unit": "kg/cm2",
+      "grafana_unit": "none",
+      "category": "pressure",
+      "normal_range": {
+        "min": 2.0852,
+        "max": 2.536
+      },
+      "thresholds": {
+        "warning": 2.536,
+        "critical": 2.59
+      },
+      "absolute_range": {
+        "min": 2.0852,
+        "max": 2.59
+      }
+    },
+    "FT_110A": {
+      "display_name": "Main Water Flow",
+      "unit": "TPH",
+      "grafana_unit": "none",
+      "category": "flow",
+      "normal_range": {
+        "min": 2.988,
+        "max": 28.64
+      },
+      "thresholds": {
+        "warning": 28.64,
+        "critical": 29.38
+      },
+      "absolute_range": {
+        "min": 2.988,
+        "max": 29.38
+      }
+    },
+    "FT_162": {
+      "display_name": "Lube Oil Flow",
+      "unit": "TPH",
+      "grafana_unit": "none",
+      "category": "flow",
+      "normal_range": {
+        "min": 0.9562,
+        "max": 7.136
+      },
+      "thresholds": {
+        "warning": 7.136,
+        "critical": 7.319
+      },
+      "absolute_range": {
+        "min": 0.9562,
+        "max": 7.319
+      }
+    },
+    "TT_109A": {
+      "display_name": "Gearbox Bearing Temp A",
+      "unit": "degC",
+      "grafana_unit": "celsius",
+      "category": "temperature",
+      "normal_range": {
+        "min": 43.594,
+        "max": 84.22
+      },
+      "thresholds": {
+        "warning": 84.22,
+        "critical": 86.6
+      },
+      "absolute_range": {
+        "min": 43.594,
+        "max": 86.6
+      }
+    },
+    "TT_110A": {
+      "display_name": "Gearbox Bearing Temp B",
+      "unit": "degC",
+      "grafana_unit": "celsius",
+      "category": "temperature",
+      "normal_range": {
+        "min": 42.632,
+        "max": 82.16
+      },
+      "thresholds": {
+        "warning": 82.16,
+        "critical": 84.48
+      },
+      "absolute_range": {
+        "min": 42.632,
+        "max": 84.48
+      }
+    },
+    "TT_110B": {
+      "display_name": "Gearbox Bearing Temp C",
+      "unit": "degC",
+      "grafana_unit": "celsius",
+      "category": "temperature",
+      "normal_range": {
+        "min": 41.67,
+        "max": 80.1
+      },
+      "thresholds": {
+        "warning": 80.1,
+        "critical": 82.36
+      },
+      "absolute_range": {
+        "min": 41.67,
+        "max": 82.36
+      }
+    },
+    "TT_111": {
+      "display_name": "Stage 1 Inlet Temp",
+      "unit": "degC",
+      "grafana_unit": "celsius",
+      "category": "temperature",
+      "normal_range": {
+        "min": 36.632,
+        "max": 76.16
+      },
+      "thresholds": {
+        "warning": 76.16,
+        "critical": 78.36
+      },
+      "absolute_range": {
+        "min": 36.632,
+        "max": 78.36
+      }
+    },
+    "TT_112": {
+      "display_name": "Stage 2 Inlet Temp",
+      "unit": "degC",
+      "grafana_unit": "celsius",
+      "category": "temperature",
+      "normal_range": {
+        "min": 34.67,
+        "max": 73.1
+      },
+      "thresholds": {
+        "warning": 73.1,
+        "critical": 75.22
+      },
+      "absolute_range": {
+        "min": 34.67,
+        "max": 75.22
+      }
+    },
+    "TT_162": {
+      "display_name": "Lube Oil Temp",
+      "unit": "degC",
+      "grafana_unit": "celsius",
+      "category": "temperature",
+      "normal_range": {
+        "min": 32.936,
+        "max": 63.68
+      },
+      "thresholds": {
+        "warning": 63.68,
+        "critical": 65.48
+      },
+      "absolute_range": {
+        "min": 32.936,
+        "max": 65.48
+      }
+    },
+    "TT_161": {
+      "display_name": "Lube Oil Supply Temp",
+      "unit": "degC",
+      "grafana_unit": "celsius",
+      "category": "temperature",
+      "normal_range": {
+        "min": 32.05,
+        "max": 59.5
+      },
+      "thresholds": {
+        "warning": 59.5,
+        "critical": 61.16
+      },
+      "absolute_range": {
+        "min": 32.05,
+        "max": 61.16
+      }
+    },
+    "TT_160": {
+      "display_name": "Lube Oil Header Temp",
+      "unit": "degC",
+      "grafana_unit": "celsius",
+      "category": "temperature",
+      "normal_range": {
+        "min": 32.493,
+        "max": 61.59
+      },
+      "thresholds": {
+        "warning": 61.59,
+        "critical": 63.32
+      },
+      "absolute_range": {
+        "min": 32.493,
+        "max": 63.32
+      }
+    },
+    "TT_120_R": {
+      "display_name": "Gearbox Oil Return Temp",
+      "unit": "degC",
+      "grafana_unit": "celsius",
+      "category": "temperature",
+      "normal_range": {
+        "min": 33.746,
+        "max": 69.98
+      },
+      "thresholds": {
+        "warning": 69.98,
+        "critical": 72.0
+      },
+      "absolute_range": {
+        "min": 33.746,
+        "max": 72.0
+      }
+    },
+    "TT_120": {
+      "display_name": "Gearbox Oil Temp",
+      "unit": "degC",
+      "grafana_unit": "celsius",
+      "category": "temperature",
+      "normal_range": {
+        "min": 35.67,
+        "max": 74.1
+      },
+      "thresholds": {
+        "warning": 74.1,
+        "critical": 76.24
+      },
+      "absolute_range": {
+        "min": 35.67,
+        "max": 76.24
+      }
+    },
+    "TT_111C": {
+      "display_name": "Stage 1 Temp C",
+      "unit": "degC",
+      "grafana_unit": "celsius",
+      "category": "temperature",
+      "normal_range": {
+        "min": 35.227,
+        "max": 72.01
+      },
+      "thresholds": {
+        "warning": 72.01,
+        "critical": 74.08
+      },
+      "absolute_range": {
+        "min": 35.227,
+        "max": 74.08
+      }
+    },
+    "TT_111C_R": {
+      "display_name": "Stage 1 Return Temp C",
+      "unit": "degC",
+      "grafana_unit": "celsius",
+      "category": "temperature",
+      "normal_range": {
+        "min": 34.341,
+        "max": 67.83
+      },
+      "thresholds": {
+        "warning": 67.83,
+        "critical": 69.76
+      },
+      "absolute_range": {
+        "min": 34.341,
+        "max": 69.76
+      }
+    },
+    "DYNO_WATER_O_L": {
+      "display_name": "Dyno Water Outlet Temp",
+      "unit": "degC",
+      "grafana_unit": "celsius",
+      "category": "temperature",
+      "normal_range": {
+        "min": 27.088,
+        "max": 53.44
+      },
+      "thresholds": {
+        "warning": 53.44,
+        "critical": 54.96
+      },
+      "absolute_range": {
+        "min": 27.088,
+        "max": 54.96
+      }
+    },
+    "TT_163": {
+      "display_name": "Lube Oil Return Temp",
+      "unit": "degC",
+      "grafana_unit": "celsius",
+      "category": "temperature",
+      "normal_range": {
+        "min": 30.898,
+        "max": 62.74
+      },
+      "thresholds": {
+        "warning": 62.74,
+        "critical": 64.54
+      },
+      "absolute_range": {
+        "min": 30.898,
+        "max": 64.54
+      }
+    },
+    "TT_150A": {
+      "display_name": "Hydraulic Oil Temp A",
+      "unit": "degC",
+      "grafana_unit": "celsius",
+      "category": "temperature",
+      "normal_range": {
+        "min": 29.05,
+        "max": 56.5
+      },
+      "thresholds": {
+        "warning": 56.5,
+        "critical": 58.1
+      },
+      "absolute_range": {
+        "min": 29.05,
+        "max": 58.1
+      }
+    },
+    "TT_150B": {
+      "display_name": "Hydraulic Oil Temp B",
+      "unit": "degC",
+      "grafana_unit": "celsius",
+      "category": "temperature",
+      "normal_range": {
+        "min": 28.569,
+        "max": 55.47
+      },
+      "thresholds": {
+        "warning": 55.47,
+        "critical": 57.04
+      },
+      "absolute_range": {
+        "min": 28.569,
+        "max": 57.04
+      }
+    },
+    "ZT_600": {
+      "display_name": "Gearbox Vibration Z1",
+      "unit": "mm/s",
+      "grafana_unit": "accMS2",
+      "category": "vibration",
+      "normal_range": {
+        "min": 0.292,
+        "max": 4.24
+      },
+      "thresholds": {
+        "warning": 4.24,
+        "critical": 4.364
+      },
+      "absolute_range": {
+        "min": 0.292,
+        "max": 4.364
+      }
+    },
+    "ZT_601": {
+      "display_name": "Gearbox Vibration Z2",
+      "unit": "mm/s",
+      "grafana_unit": "accMS2",
+      "category": "vibration",
+      "normal_range": {
+        "min": 0.314,
+        "max": 3.98
+      },
+      "thresholds": {
+        "warning": 3.98,
+        "critical": 4.096
+      },
+      "absolute_range": {
+        "min": 0.314,
+        "max": 4.096
+      }
+    },
+    "XT_600": {
+      "display_name": "Gearbox Vibration X",
+      "unit": "mm/s",
+      "grafana_unit": "accMS2",
+      "category": "vibration",
+      "normal_range": {
+        "min": 0.381,
+        "max": 4.47
+      },
+      "thresholds": {
+        "warning": 4.47,
+        "critical": 4.6
+      },
+      "absolute_range": {
+        "min": 0.381,
+        "max": 4.6
+      }
+    },
+    "XT_601": {
+      "display_name": "Gearbox Vibration Y",
+      "unit": "mm/s",
+      "grafana_unit": "accMS2",
+      "category": "vibration",
+      "normal_range": {
+        "min": 0.392,
+        "max": 4.34
+      },
+      "thresholds": {
+        "warning": 4.34,
+        "critical": 4.466
+      },
+      "absolute_range": {
+        "min": 0.392,
+        "max": 4.466
+      }
+    },
+    "XT_602": {
+      "display_name": "Generator Vibration X",
+      "unit": "mm/s",
+      "grafana_unit": "accMS2",
+      "category": "vibration",
+      "normal_range": {
+        "min": 0.236,
+        "max": 3.62
+      },
+      "thresholds": {
+        "warning": 3.62,
+        "critical": 3.726
+      },
+      "absolute_range": {
+        "min": 0.236,
+        "max": 3.726
+      }
+    },
+    "XT_603": {
+      "display_name": "Generator Vibration Y",
+      "unit": "mm/s",
+      "grafana_unit": "accMS2",
+      "category": "vibration",
+      "normal_range": {
+        "min": 0.247,
+        "max": 3.49
+      },
+      "thresholds": {
+        "warning": 3.49,
+        "critical": 3.592
+      },
+      "absolute_range": {
+        "min": 0.247,
+        "max": 3.592
+      }
+    },
+    "XT_604": {
+      "display_name": "Rotor Vibration X",
+      "unit": "mm/s",
+      "grafana_unit": "accMS2",
+      "category": "vibration",
+      "normal_range": {
+        "min": 0.18,
+        "max": 3.0
+      },
+      "thresholds": {
+        "warning": 3.0,
+        "critical": 3.088
+      },
+      "absolute_range": {
+        "min": 0.18,
+        "max": 3.088
+      }
+    },
+    "XT_605": {
+      "display_name": "Rotor Vibration Y",
+      "unit": "mm/s",
+      "grafana_unit": "accMS2",
+      "category": "vibration",
+      "normal_range": {
+        "min": 0.191,
+        "max": 2.87
+      },
+      "thresholds": {
+        "warning": 2.87,
+        "critical": 2.954
+      },
+      "absolute_range": {
+        "min": 0.191,
+        "max": 2.954
+      }
+    },
+    "XT_606": {
+      "display_name": "Shaft Vibration X",
+      "unit": "mm/s",
+      "grafana_unit": "accMS2",
+      "category": "vibration",
+      "normal_range": {
+        "min": 0.1575,
+        "max": 2.625
+      },
+      "thresholds": {
+        "warning": 2.625,
+        "critical": 2.702
+      },
+      "absolute_range": {
+        "min": 0.1575,
+        "max": 2.702
+      }
+    },
+    "XT_607": {
+      "display_name": "Shaft Vibration Y",
+      "unit": "mm/s",
+      "grafana_unit": "accMS2",
+      "category": "vibration",
+      "normal_range": {
+        "min": 0.1685,
+        "max": 2.495
+      },
+      "thresholds": {
+        "warning": 2.495,
+        "critical": 2.568
+      },
+      "absolute_range": {
+        "min": 0.1685,
+        "max": 2.568
+      }
+    },
+    "HP_DEMAND": {
+      "display_name": "Hydraulic Power Demand",
+      "unit": "percent",
+      "grafana_unit": "percent",
+      "category": "operational",
+      "normal_range": {
+        "min": 4.3065,
+        "max": 79.095
+      },
+      "thresholds": {
+        "warning": 79.095,
+        "critical": 81.02
+      },
+      "absolute_range": {
+        "min": 4.3065,
+        "max": 81.02
+      }
+    },
+    "ACT_POS_FB": {
+      "display_name": "Actuator Position Feedback",
+      "unit": "percent",
+      "grafana_unit": "percent",
+      "category": "operational",
+      "normal_range": {
+        "min": 1.202,
+        "max": 87.26
+      },
+      "thresholds": {
+        "warning": 87.26,
+        "critical": 89.4
+      },
+      "absolute_range": {
+        "min": 1.202,
+        "max": 89.4
+      }
+    },
+    "GB_TRQ": {
+      "display_name": "Gearbox Torque",
+      "unit": "kN.m",
+      "grafana_unit": "none",
+      "category": "operational",
+      "normal_range": {
+        "min": -0.1405,
+        "max": 7.4188
+      },
+      "thresholds": {
+        "warning": 7.4188,
+        "critical": 7.5937
+      },
+      "absolute_range": {
+        "min": -0.1405,
+        "max": 7.5937
+      }
+    },
+    "PYRO_T": {
+      "display_name": "Pyrometer Turbine Temp",
+      "unit": "degC",
+      "grafana_unit": "celsius",
+      "category": "operational",
+      "normal_range": {
+        "min": 37.34,
+        "max": 324.2
+      },
+      "thresholds": {
+        "warning": 324.2,
+        "critical": 332.0
+      },
+      "absolute_range": {
+        "min": 37.34,
+        "max": 332.0
+      }
+    },
+    "PYRO_GB": {
+      "display_name": "Pyrometer Gearbox Temp",
+      "unit": "degC",
+      "grafana_unit": "celsius",
+      "category": "operational",
+      "normal_range": {
+        "min": 36.556,
+        "max": 192.28
+      },
+      "thresholds": {
+        "warning": 192.28,
+        "critical": 196.84
+      },
+      "absolute_range": {
+        "min": 36.556,
+        "max": 196.84
+      }
+    },
+    "TURBINE_SPEED_RPM": {
+      "display_name": "Turbine Rotor Speed",
+      "unit": "rpm",
+      "grafana_unit": "rotrpm",
+      "category": "operational",
+      "normal_range": {
+        "min": 9.04,
+        "max": 11975.2
+      },
+      "thresholds": {
+        "warning": 11975.2,
+        "critical": 12269.6
+      },
+      "absolute_range": {
+        "min": 9.04,
+        "max": 12269.6
+      }
+    },
+    "RTD_219A": {
+      "display_name": "Generator Winding Temp A",
+      "unit": "degC",
+      "grafana_unit": "celsius",
+      "category": "temperature",
+      "normal_range": {
+        "min": 27.796,
+        "max": 91.48
+      },
+      "thresholds": {
+        "warning": 91.48,
+        "critical": 94.4
+      },
+      "absolute_range": {
+        "min": 27.796,
+        "max": 94.4
+      }
+    },
+    "RTD_219B": {
+      "display_name": "Generator Winding Temp B",
+      "unit": "degC",
+      "grafana_unit": "celsius",
+      "category": "temperature",
+      "normal_range": {
+        "min": 27.834,
+        "max": 90.42
+      },
+      "thresholds": {
+        "warning": 90.42,
+        "critical": 93.3
+      },
+      "absolute_range": {
+        "min": 27.834,
+        "max": 93.3
+      }
+    },
+    "RTD_220": {
+      "display_name": "Generator Bearing Temp DE",
+      "unit": "degC",
+      "grafana_unit": "celsius",
+      "category": "temperature",
+      "normal_range": {
+        "min": 27.29,
+        "max": 76.7
+      },
+      "thresholds": {
+        "warning": 76.7,
+        "critical": 79.08
+      },
+      "absolute_range": {
+        "min": 27.29,
+        "max": 79.08
+      }
+    },
+    "RTD_221": {
+      "display_name": "Generator Bearing Temp NDE",
+      "unit": "degC",
+      "grafana_unit": "celsius",
+      "category": "temperature",
+      "normal_range": {
+        "min": 27.366,
+        "max": 74.58
+      },
+      "thresholds": {
+        "warning": 74.58,
+        "critical": 76.88
+      },
+      "absolute_range": {
+        "min": 27.366,
+        "max": 76.88
+      }
+    },
+    "RTD_200": {
+      "display_name": "Nacelle Ambient Temp",
+      "unit": "degC",
+      "grafana_unit": "celsius",
+      "category": "temperature",
+      "normal_range": {
+        "min": 21.658,
+        "max": 31.54
+      },
+      "thresholds": {
+        "warning": 31.54,
+        "critical": 32.34
+      },
+      "absolute_range": {
+        "min": 21.658,
+        "max": 32.34
+      }
+    },
+    "RTD_202": {
+      "display_name": "Cooling Water Inlet Temp",
+      "unit": "degC",
+      "grafana_unit": "celsius",
+      "category": "temperature",
+      "normal_range": {
+        "min": 23.468,
+        "max": 38.84
+      },
+      "thresholds": {
+        "warning": 38.84,
+        "critical": 39.88
+      },
+      "absolute_range": {
+        "min": 23.468,
+        "max": 39.88
+      }
+    },
+    "RTD_203": {
+      "display_name": "Cooling Water Outlet Temp",
+      "unit": "degC",
+      "grafana_unit": "celsius",
+      "category": "temperature",
+      "normal_range": {
+        "min": 24.164,
+        "max": 48.32
+      },
+      "thresholds": {
+        "warning": 48.32,
+        "critical": 49.7
+      },
+      "absolute_range": {
+        "min": 24.164,
+        "max": 49.7
+      }
+    },
+    "RTD_204": {
+      "display_name": "Main Bearing Temp DE",
+      "unit": "degC",
+      "grafana_unit": "celsius",
+      "category": "temperature",
+      "normal_range": {
+        "min": 26.442,
+        "max": 71.46
+      },
+      "thresholds": {
+        "warning": 71.46,
+        "critical": 73.66
+      },
+      "absolute_range": {
+        "min": 26.442,
+        "max": 73.66
+      }
+    },
+    "RTD_205": {
+      "display_name": "Main Bearing Temp NDE",
+      "unit": "degC",
+      "grafana_unit": "celsius",
+      "category": "temperature",
+      "normal_range": {
+        "min": 26.518,
+        "max": 69.34
+      },
+      "thresholds": {
+        "warning": 69.34,
+        "critical": 71.46
+      },
+      "absolute_range": {
+        "min": 26.518,
+        "max": 71.46
+      }
+    },
+    "RTD_201": {
+      "display_name": "Tower Base Temp",
+      "unit": "degC",
+      "grafana_unit": "celsius",
+      "category": "temperature",
+      "normal_range": {
+        "min": 20.772,
+        "max": 27.36
+      },
+      "thresholds": {
+        "warning": 27.36,
+        "critical": 28.02
+      },
+      "absolute_range": {
+        "min": 20.772,
+        "max": 28.02
+      }
+    }
+  }
+}
