@@ -1,9 +1,11 @@
 /**
- * turbine-mimic.js
+ * @fileoverview ThingsBoard CE custom widget controller and templates for 2D process mimic schematic.
+ * Renders SVG hotspot components, dynamic health state chips, and real-time telemetry KPI badges.
  *
- * Thingsboard Community Edition custom widget for turbine schematic visualization.
- * Packages into turbine-mimic.widget-type.json via app/tools/package_widget_type.py.
+ * @module turbine-mimic
+ * @see {@link app/tools/package_widget_type.py} for compilation into widget-type JSON.
  */
+
 
 // Template (HTML) packaged into descriptor.templateHtml
 const TEMPLATE_HTML = `

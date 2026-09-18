@@ -1,4 +1,17 @@
-"""Widget deployment subcommands for thingsboard_admin."""
+"""Widget deployment subcommands for thingsboard_admin CLI.
+
+Provides commands to compile, package, and deploy custom ThingsBoard widget types
+including Babylon 3D digital twins, threshold configurators, headroom monitors,
+copilot AI assistants, and 2D process mimics.
+
+Exported Classes:
+    WidgetCommand: Orchestrates individual and batch widget deployments.
+
+Exported Functions:
+    build_babylon_descriptor: Extracts HTML, CSS, JS and builds a widget descriptor.
+    register_widget_parser: Registers widget management CLI subcommands.
+    run_deploy_widget: Entry point alias for deploying widget types.
+"""
 
 from __future__ import annotations
 
@@ -39,6 +52,18 @@ TELEMETRY_LABELS = {
 
 
 def _extract_block(source: str, var_name: str) -> str:
+    """Extracts a template literal block assigned to a JavaScript constant.
+
+    Args:
+        source: Full JavaScript file source content.
+        var_name: Name of the constant to locate (e.g. TEMPLATE_HTML).
+
+    Returns:
+        Extracted content string within template backticks.
+
+    Raises:
+        ValueError: If constant variable declaration is not found.
+    """
     pattern = re.compile(r"const\s+" + re.escape(var_name) + r"\s*=\s*`(.*?)`;\s*\n", re.DOTALL)
     match = pattern.search(source)
     if not match:
@@ -47,6 +72,17 @@ def _extract_block(source: str, var_name: str) -> str:
 
 
 def _extract_controller_script(source: str) -> str:
+    """Extracts the widget controller script bracketed between marker comments.
+
+    Args:
+        source: Full JavaScript source code.
+
+    Returns:
+        Extracted controller script body.
+
+    Raises:
+        ValueError: If START or END comment delimiters are missing or disordered.
+    """
     start = source.find("// CONTROLLER_SCRIPT_START")
     end = source.find("// CONTROLLER_SCRIPT_END")
     if start == -1 or end == -1 or end <= start:
@@ -54,7 +90,18 @@ def _extract_controller_script(source: str) -> str:
     return source[start + len("// CONTROLLER_SCRIPT_START"):end].strip()
 
 
-def _telemetry_data_keys(source: str) -> list[dict]:
+def _telemetry_data_keys(source: str) -> list[dict[str, str]]:
+    """Extracts telemetry keys from the widget source and creates dataKey definitions.
+
+    Args:
+        source: Full JavaScript source code.
+
+    Returns:
+        List of dataKey dictionaries with name, type, and human-readable label.
+
+    Raises:
+        ValueError: If T3D_DEVICE_TELEMETRY_KEYS array cannot be located.
+    """
     pattern = re.compile(r"T3D_DEVICE_TELEMETRY_KEYS\s*=\s*\[(.*?)\];", re.DOTALL)
     match = pattern.search(source)
     if not match:
@@ -64,6 +111,14 @@ def _telemetry_data_keys(source: str) -> list[dict]:
 
 
 def build_babylon_descriptor(source: str) -> dict[str, Any]:
+    """Builds a complete ThingsBoard widget descriptor dictionary from Babylon.js source.
+
+    Args:
+        source: Raw JavaScript source of turbine-3d-babylon.js.
+
+    Returns:
+        Dictionary representing the complete ThingsBoard widget descriptor.
+    """
     template_html = _extract_block(source, "TEMPLATE_HTML")
     template_css = _extract_block(source, "TEMPLATE_CSS")
     controller_script = _extract_controller_script(source)
@@ -116,10 +171,24 @@ def build_babylon_descriptor(source: str) -> dict[str, Any]:
 
 
 class WidgetCommand(BaseCommand):
-    """Widget deployment command."""
+    """Widget deployment command dispatcher.
+
+    Provides methods to package and upload widget type bundles into ThingsBoard.
+    """
 
     @classmethod
     def get_widget_service(cls, args: argparse.Namespace) -> ThingsboardWidgetService:
+        """Initializes and returns an authenticated ThingsboardWidgetService instance.
+
+        Args:
+            args: Parsed arguments containing connection parameters.
+
+        Returns:
+            Configured ThingsboardWidgetService instance.
+
+        Raises:
+            ValueError: If tenant admin HTTP session could not be established.
+        """
         cfg, session, http = cls.init_session(args, require_password=True, is_sysadmin=False)
         if not http:
             raise ValueError("Tenant admin password is required for widget operations.")
@@ -127,6 +196,11 @@ class WidgetCommand(BaseCommand):
 
     @classmethod
     def deploy_thresholds(cls, service: ThingsboardWidgetService) -> None:
+        """Deploys threshold configurator and headroom monitor widget types.
+
+        Args:
+            service: Active ThingsboardWidgetService instance.
+        """
         if THRESHOLD_JSON.exists():
             data = json.loads(THRESHOLD_JSON.read_text(encoding="utf-8"))
             service.save_or_update_widget_type(data["descriptor"], fqn="turbine_threshold_config", name="Turbine Threshold Configurator")
@@ -137,6 +211,11 @@ class WidgetCommand(BaseCommand):
 
     @classmethod
     def deploy_babylon(cls, service: ThingsboardWidgetService) -> None:
+        """Compiles and deploys the 3D Babylon.js digital twin widget type.
+
+        Args:
+            service: Active ThingsboardWidgetService instance.
+        """
         source = WIDGET_JS.read_text(encoding="utf-8")
         descriptor = build_babylon_descriptor(source)
         packaged = {
@@ -152,6 +231,11 @@ class WidgetCommand(BaseCommand):
 
     @classmethod
     def deploy_copilot(cls, service: ThingsboardWidgetService) -> None:
+        """Deploys the Turbine Copilot AI assistant chat widget type.
+
+        Args:
+            service: Active ThingsboardWidgetService instance.
+        """
         copilot_json = WIDGET_DIR / "turbine-copilot.widget-type.json"
         if copilot_json.exists():
             data = json.loads(copilot_json.read_text(encoding="utf-8"))
@@ -162,6 +246,11 @@ class WidgetCommand(BaseCommand):
 
     @classmethod
     def deploy_mimic(cls, service: ThingsboardWidgetService) -> None:
+        """Deploys the 2D SVG Process Mimic widget type.
+
+        Args:
+            service: Active ThingsboardWidgetService instance.
+        """
         if MIMIC_JSON.exists():
             data = json.loads(MIMIC_JSON.read_text(encoding="utf-8"))
             service.save_or_update_widget_type(data["descriptor"], fqn="turbine_mimic", name="Turbine Process Mimic")
@@ -169,6 +258,14 @@ class WidgetCommand(BaseCommand):
 
     @classmethod
     def run_deploy_widget(cls, args: argparse.Namespace) -> int:
+        """Runs the widget deployment workflow for requested target(s).
+
+        Args:
+            args: Parsed command-line arguments specifying the target widget type.
+
+        Returns:
+            Zero on success, non-zero on error.
+        """
         target = getattr(args, "target", "all")
         try:
             service = cls.get_widget_service(args)
@@ -194,6 +291,11 @@ run_deploy_widget = WidgetCommand.run_deploy_widget
 
 
 def register_widget_parser(subparsers: argparse._SubParsersAction) -> None:
+    """Registers widget deployment subcommands with argparse.
+
+    Args:
+        subparsers: Subparser collection from argparse root command.
+    """
     parser = subparsers.add_parser("widget", help="Widget deployment management")
     widget_subs = parser.add_subparsers(dest="widget_command", required=True)
 

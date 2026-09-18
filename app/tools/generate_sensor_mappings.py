@@ -1,16 +1,21 @@
 #!/usr/bin/env python3
 """
-generate_sensor_mappings.py - Render config/sensor_mappings.json.
+Turbine sensor mapping and range catalog generator.
 
-sensor_mappings.json is consumed by Grafana (panel field overrides that
-rename TT_109A -> "Gearbox Bearing Temp A") and by any tooling that needs
-sensor units. It is generated rather than hand-maintained so it cannot
-drift from sensor_profiles.py, which the simulator uses.
+Renders config/sensor_mappings.json from sensor profiles defined in
+sensor_profiles.py, computing warning, alarm, and normal operation thresholds.
 
-Regenerate after editing sensor_profiles.py:
-    python app/tools/generate_sensor_mappings.py
+The implementation supports:
 
-test_sensor_mappings.py fails if the committed file is stale.
+    - Sensor metadata aggregation across categories
+    - Dynamic normal range computation including noise bands
+    - JSON artifact serialization for dashboards and tooling
+
+Key classes / functions:
+
+    - build_mappings: Assemble complete sensor mappings specification.
+    - main: Write generated mappings file to disk.
+
 """
 
 from __future__ import annotations
@@ -29,14 +34,23 @@ SCHEMA_VERSION = "1.0"
 
 
 def build_mappings() -> dict:
-    """Assemble the full mappings document from the profile catalog."""
+    """
+    Assemble the complete sensor mapping document from the profile catalog.
+
+    Calculates normal range intervals based on idle/load parameters and noise
+    bounds, grouping channels by physical category.
+
+    Returns:
+        dict: Complete serialized dictionary conforming to sensor mappings schema.
+
+    Example:
+        >>> doc = build_mappings()
+        >>> "sensors" in doc and "categories" in doc
+        True
+
+    """
     sensors = {}
     for profile in SENSOR_PROFILES:
-        # Normal range spans idle..full-load, widened by the noise band so
-        # a healthy machine at either extreme is not flagged by a
-        # dashboard threshold on every tick, then clipped to the channel's
-        # absolute range -- otherwise a channel that cannot read negative
-        # (flow, vibration) would advertise a negative normal minimum.
         low = max(
             profile.min_value,
             min(profile.idle_value, profile.load_value) - 3 * profile.noise_std,

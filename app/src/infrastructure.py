@@ -1,4 +1,23 @@
-"""Infrastructure module combining structured logging and HTTP health endpoints."""
+"""
+Infrastructure module combining structured logging and HTTP health endpoints.
+
+Provides service logging configuration with JSON formatting, timed rotation,
+and background daemon HTTP probe endpoints (/health and /ready).
+
+The implementation supports:
+
+    - Daily rotating JSON log files with gzip compression
+    - Thread-safe health and readiness state management
+    - Standard HTTP health endpoints for orchestrator probes
+
+Key classes / functions:
+
+    - JsonFormatter: Custom log formatter generating single-line JSON records.
+    - configure_logging: Set up service root logger with rotating file handler.
+    - HealthState: Thread-safe status container for service probes.
+    - start_health_server: Start daemon thread HTTP health probe server.
+
+"""
 
 from __future__ import annotations
 
@@ -19,15 +38,29 @@ log = logging.getLogger("health")
 
 
 class JsonFormatter(logging.Formatter):
-    """Renders each log record as one JSON object per line."""
+    """
+    Render log records as single-line JSON strings with structured fields.
+
+    Args:
+        service (str): Service name identifier included in every log entry.
+
+    """
 
     def __init__(self, service: str):
-        """Initialize JSON formatter with service identifier."""
         super().__init__()
         self.service = service
 
     def format(self, record: logging.LogRecord) -> str:
-        """Format log record as a structured JSON string."""
+        """
+        Format a single log record into a JSON string.
+
+        Args:
+            record (logging.LogRecord): The log record to format.
+
+        Returns:
+            str: JSON-encoded string representation.
+
+        """
         payload = {
             "timestamp": self.formatTime(record, "%Y-%m-%dT%H:%M:%S%z"),
             "level": record.levelname,
@@ -52,16 +85,26 @@ class JsonFormatter(logging.Formatter):
 
 
 def _gzip_rotator(source: str, dest: str) -> None:
-    """TimedRotatingFileHandler rotator that gzip-compresses old log files."""
     with open(source, "rb") as f_in, gzip.open(f"{dest}.gz", "wb") as f_out:
         shutil.copyfileobj(f_in, f_out)
     os.remove(source)
 
 
 def configure_logging(service: str, log_dir: Optional[str] = None) -> logging.Logger:
-    """Configure root logger for a service with daily-rotating JSON file output.
+    """
+    Configure root logger for a service with daily-rotating JSON file output.
 
-    Writes compressed daily backups to LOG_DIR (defaults to ./logs or $LOG_DIR).
+    Args:
+        service (str): Identifying name of the service.
+        log_dir (Optional[str], optional): Target log directory. Defaults to $LOG_DIR or './logs'.
+
+    Returns:
+        logging.Logger: Root logger configured for the specified service.
+
+    Example:
+        >>> logger = configure_logging("my-service", log_dir="/tmp/logs")
+        >>> logger.info("Service initialized")
+
     """
     log_dir = log_dir or os.environ.get("LOG_DIR", "./logs")
     level_name = os.environ.get("LOG_LEVEL", "INFO").upper()
@@ -71,8 +114,6 @@ def configure_logging(service: str, log_dir: Optional[str] = None) -> logging.Lo
 
     root = logging.getLogger()
     root.setLevel(level)
-    # Avoid duplicate handlers if configure_logging() is called twice
-    # (e.g. reimported in tests).
     root.handlers.clear()
 
     Path(log_dir).mkdir(parents=True, exist_ok=True)
@@ -96,37 +137,58 @@ def configure_logging(service: str, log_dir: Optional[str] = None) -> logging.Lo
 
 
 class HealthState:
-    """Thread-safe status container shared with the health HTTP handler."""
+    """
+    Thread-safe status container shared with the health HTTP handler.
+
+    Maintains component health checks and readiness flags, synchronizing access
+    with a reentrant-safe mutex.
+
+    """
 
     def __init__(self) -> None:
-        """Initialize health state tracking locks and checks dictionary."""
         self._lock = threading.Lock()
         self._checks: Dict[str, Dict[str, str]] = {}
         self._ready: bool = False
 
     def set_check(self, name: str, ok: bool, detail: str = "") -> None:
-        """Update the status of an individual health check."""
+        """
+        Update the status of an individual health check.
+
+        Args:
+            name (str): Identifier of the component or check.
+            ok (bool): True if healthy, False otherwise.
+            detail (str, optional): Diagnostic explanation. Defaults to "".
+
+        """
         with self._lock:
             self._checks[name] = {"status": "ok" if ok else "fail", "detail": detail}
 
     def set_ready(self, ready: bool) -> None:
-        """Update the readiness status of the service."""
+        """
+        Update the readiness status of the service.
+
+        Args:
+            ready (bool): True if service is ready to handle traffic, False otherwise.
+
+        """
         with self._lock:
             self._ready = ready
 
     def snapshot(self) -> Tuple[Dict[str, Dict[str, str]], bool]:
-        """Return a copy of current health checks and readiness state."""
+        """
+        Return a copy of current health checks and readiness state.
+
+        Returns:
+            Tuple[Dict[str, Dict[str, str]], bool]: Atomic snapshot of checks and readiness.
+
+        """
         with self._lock:
             return dict(self._checks), self._ready
 
 
 def _make_handler(state: HealthState, service_name: str):
-    """Construct HTTP request handler bound to the specified health state."""
     class Handler(BaseHTTPRequestHandler):
-        """HTTP handler serving /health and /ready probe endpoints."""
-
         def _write_json(self, status_code: int, payload: Dict[str, Any]) -> None:
-            """Serialize payload to JSON and write HTTP response."""
             body = json.dumps(payload).encode("utf-8")
             self.send_response(status_code)
             self.send_header("Content-Type", "application/json")
@@ -135,9 +197,7 @@ def _make_handler(state: HealthState, service_name: str):
             self.wfile.write(body)
 
         def do_GET(self) -> None:
-            """Handle GET requests for /health liveness and /ready readiness probes."""
             if self.path == "/health":
-                # Liveness check: confirms process is responsive
                 self._write_json(200, {"status": "healthy", "service": service_name})
             elif self.path == "/ready":
                 checks, ready = state.snapshot()
@@ -148,14 +208,27 @@ def _make_handler(state: HealthState, service_name: str):
                 self._write_json(404, {"error": "not found"})
 
         def log_message(self, format: str, *args: Any) -> None:
-            """Suppress default HTTP access logs."""
             pass
 
     return Handler
 
 
 def start_health_server(port: int, service_name: str) -> HealthState:
-    """Starts the health server in a daemon thread and returns its shared state."""
+    """
+    Start the health server in a daemon thread and return its shared state.
+
+    Args:
+        port (int): Port number on which to bind the HTTP probe server.
+        service_name (str): Identifying service name reported in responses.
+
+    Returns:
+        HealthState: Mutable container for updating check results and readiness.
+
+    Example:
+        >>> health = start_health_server(8080, "my-service")
+        >>> health.set_ready(True)
+
+    """
     state = HealthState()
     handler_cls = _make_handler(state, service_name)
     server = HTTPServer(("0.0.0.0", port), handler_cls)
@@ -163,3 +236,4 @@ def start_health_server(port: int, service_name: str) -> HealthState:
     thread.start()
     log.info("Health server listening on :%d (/health, /ready)", port)
     return state
+

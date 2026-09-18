@@ -1,6 +1,17 @@
-"""FastAPI copilot backend for wind turbine digital twin chatbot."""
+"""FastAPI HTTP service application for wind turbine digital twin AI copilot.
 
-from __future__ import annotations
+Provides REST and Server-Sent Events (SSE) streaming endpoints for interactive chat,
+historical analysis querying, telemetry diagnostics, and health monitoring.
+
+Exported Classes:
+    TimeWindow: Schema for time boundary parameters.
+    ChatRequest: Inbound request payload for chat completion.
+    TurbineContext: Inbound device context specification.
+
+Exported Functions:
+    get_tb_client: FastAPI dependency providing authenticated ThingsboardClient.
+    lifespan: Async context manager for application startup and shutdown hooks.
+"""
 
 import json
 import logging

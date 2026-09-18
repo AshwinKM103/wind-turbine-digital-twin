@@ -1,8 +1,12 @@
 /**
- * Babylon.js 3D turbine digital-twin widget for ThingsBoard.
+ * @fileoverview Babylon.js 3D turbine digital-twin widget for ThingsBoard.
  * Renders GLB model with telemetry-driven shaft rotation, particle flow,
  * actuator motion, health-score mesh coloring, and component isolation mode.
+ *
+ * @module turbine-3d-babylon
+ * @see {@link app/tools/commands/widget_command.py} for compilation into ThingsBoard widget descriptor.
  */
+
 
 // Template (HTML) packaged into descriptor.templateHtml
 const TEMPLATE_HTML = `

@@ -1,6 +1,18 @@
-"""Core ThingsBoard management package."""
+"""Core ThingsBoard REST API integration and client package.
 
-from __future__ import annotations
+Provides typed HTTP client sessions, entity management services, dashboard state
+manipulation, ECharts visualization generation, and custom widget deployment.
+
+Exported Classes:
+    ThingsboardConfig: Configuration container for ThingsBoard connectivity.
+    ThingsboardSession: Authentication state and token holder.
+    ThingsboardHttpClient: Low-level REST API client with retry semantics.
+    ThingsboardEntityService: CRUD operations for devices, assets, and relations.
+    ThingsboardWidgetService: Deployment and inspection of widget bundles.
+    ThingsboardDashboardService: Provisioning and layout management for dashboards.
+    ThingsboardTelemetryService: Querying and publishing entity telemetry/attributes.
+    ThingsboardError, ThingsboardAuthError, ThingsboardAPIError: Custom exception types.
+"""
 
 from app.tools.thingsboard_core.thingsboard_config import ThingsboardConfig, resolve_config
 from app.tools.thingsboard_core.echarts_builder import build_chart_widget, make_axis, make_orbit

@@ -1,6 +1,11 @@
-"""Deterministic chat orchestrator with tool calling and safety boundaries."""
+"""Deterministic chat orchestrator with tool calling and safety boundaries.
 
-from __future__ import annotations
+Manages conversational LLM streaming turns, multi-step function call tool execution loops,
+safety guardrails, token-limit truncation handling, and client event synthesis.
+
+Exported Functions:
+    run_orchestrator_turn: Main generator handling multi-turn LLM reasoning and tool calls.
+"""
 
 import json
 import logging

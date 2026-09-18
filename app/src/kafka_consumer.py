@@ -1,4 +1,25 @@
-"""Kafka to IoTDB consumer and batch writer."""
+"""
+Kafka to IoTDB telemetry consumer and batch writer.
+
+Consumes serialized turbine telemetry events from Kafka, validates schema
+and identity attributes, batches measurements by device path, and persists
+them into Apache IoTDB with circuit-breaker fault isolation.
+
+The implementation supports:
+
+    - Schema alignment with 61 sensor channels and sequence numbers
+    - Circuit breaker protection for IoTDB insert operations
+    - Partitioned batch flushes grouped by device path
+    - Dead letter queue (DLQ) routing for unparseable or rejected records
+
+Key classes / functions:
+
+    - build_device_path: Construct canonical and escaped IoTDB device path.
+    - flush_batch_to_iotdb: Write a batch of rows to IoTDB with retries.
+    - group_by_device: Group buffered records by device path.
+    - run_consumer: Main consumer polling loop and batch coordinator.
+
+"""
 
 import json
 import re
@@ -49,7 +70,7 @@ DATA_TYPES = [
     TSDataType.FLOAT, TSDataType.FLOAT, TSDataType.FLOAT, TSDataType.FLOAT,
     TSDataType.FLOAT, TSDataType.INT32,
 ]
-assert len(MEASUREMENTS) == len(DATA_TYPES) == 62  # 61 sensor channels + seq_no
+assert len(MEASUREMENTS) == len(DATA_TYPES) == 62
 
 REQUIRED_PAYLOAD_FIELDS = ("event_time_ms", "customer_id", "turbine_id", "seq_no")
 
@@ -58,7 +79,13 @@ IDENTIFIER_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$")
 
 
 def build_consumer() -> Consumer:
-    """Instantiate configured Kafka consumer with manual commit mode."""
+    """
+    Instantiate configured Kafka consumer with manual offset commit mode.
+
+    Returns:
+        Consumer: Initialized confluent_kafka Consumer instance.
+
+    """
     config = {
         "bootstrap.servers": Config.KAFKA_BOOTSTRAP_SERVERS,
         "group.id": Config.KAFKA_GROUP_ID,
@@ -71,12 +98,27 @@ def build_consumer() -> Consumer:
 
 
 def build_dlq_producer() -> Producer:
-    """Instantiate Kafka producer for Dead Letter Queue routing."""
+    """
+    Instantiate Kafka producer for Dead Letter Queue routing.
+
+    Returns:
+        Producer: Initialized confluent_kafka Producer instance.
+
+    """
     return Producer({"bootstrap.servers": Config.KAFKA_BOOTSTRAP_SERVERS, "acks": "all"})
 
 
 def build_iotdb_session(health=None) -> Session:
-    """Connect to IoTDB with exponential backoff until successful."""
+    """
+    Connect to IoTDB with exponential backoff until successful.
+
+    Args:
+        health (HealthState, optional): Health state object to update. Defaults to None.
+
+    Returns:
+        Session: Open IoTDB client session.
+
+    """
     attempt = 0
     while True:
         attempt += 1
@@ -96,7 +138,16 @@ def build_iotdb_session(health=None) -> Session:
 
 
 def validate_payload(payload: dict) -> None:
-    """Validate incoming Kafka message structure and identifier constraints."""
+    """
+    Validate incoming Kafka message structure and identifier constraints.
+
+    Args:
+        payload (dict): Parsed JSON dictionary of telemetry record.
+
+    Raises:
+        ValueError: If payload is missing fields, has invalid types, or invalid identifiers.
+
+    """
     if not isinstance(payload, dict):
         raise ValueError(f"payload is not a JSON object: {type(payload).__name__}")
     missing = [f for f in REQUIRED_PAYLOAD_FIELDS if f not in payload]
@@ -116,7 +167,20 @@ _UNQUOTED_NODE_PATTERN = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 
 
 def quote_path_node(node: str) -> str:
-    """Escape and backtick-quote an IoTDB path node if it cannot be unquoted."""
+    """
+    Escape and backtick-quote an IoTDB path node if it contains special characters.
+
+    Args:
+        node (str): Path segment name.
+
+    Returns:
+        str: Escaped and quoted node string if necessary, else unchanged.
+
+    Example:
+        >>> quote_path_node("turbine-01")
+        '`turbine-01`'
+
+    """
     if not node:
         return node
     if _UNQUOTED_NODE_PATTERN.match(node):
@@ -131,7 +195,23 @@ def build_device_path(
     turbine_id: str,
     root: str = "root.digitaltwin",
 ) -> str:
-    """Build a fully qualified and escaped IoTDB device path."""
+    """
+    Build a fully qualified and escaped IoTDB device path.
+
+    Args:
+        customer_id (str): Customer identifier.
+        site_id (str): Site location identifier.
+        turbine_id (str): Turbine identifier.
+        root (str, optional): Storage group prefix. Defaults to 'root.digitaltwin'.
+
+    Returns:
+        str: Formatted device path string.
+
+    Example:
+        >>> build_device_path("zephyr", "cascade", "t1")
+        'root.digitaltwin.zephyr.cascade.t1'
+
+    """
     return (
         f"{root}."
         f"{quote_path_node(customer_id)}."
@@ -141,7 +221,19 @@ def build_device_path(
 
 
 def device_path_for(payload: dict) -> str:
-    """Construct fully qualified IoTDB device path from payload attributes."""
+    """
+    Construct fully qualified IoTDB device path from payload attributes.
+
+    Args:
+        payload (dict): Parsed telemetry record.
+
+    Returns:
+        str: Fully qualified IoTDB device path.
+
+    Raises:
+        ValueError: If site_id in payload or default is invalid.
+
+    """
     site_id = payload.get("site_id") or Config.SITE_ID
     if not isinstance(site_id, str) or not IDENTIFIER_PATTERN.match(site_id):
         raise ValueError(f"payload.site_id is not a valid identifier: {site_id!r}")
@@ -153,8 +245,22 @@ def device_path_for(payload: dict) -> str:
     )
 
 
-def payload_to_row(payload: dict):
-    """Map telemetry payload metrics to schema-aligned row values."""
+def payload_to_row(payload: dict) -> tuple[int, list]:
+    """
+    Map telemetry payload metrics to schema-aligned row values.
+
+    Args:
+        payload (dict): Validated incoming telemetry payload.
+
+    Returns:
+        tuple[int, list]: Tuple containing event timestamp (ms) and list of measurement values.
+
+    Example:
+        >>> ts, vals = payload_to_row({"event_time_ms": 1000, "metrics": {"power_kw": 250.0}})
+        >>> ts
+        1000
+
+    """
     metrics = payload.get("metrics", {})
     values = []
     for name in MEASUREMENTS:
@@ -170,9 +276,22 @@ def payload_to_row(payload: dict):
 
 
 def flush_batch_to_iotdb(
-    session: Session, breaker: CircuitBreaker, timestamps, rows, device_path: str
+    session: Session, breaker: CircuitBreaker, timestamps: list[int], rows: list[list], device_path: str
 ) -> bool:
-    """Write tablet batch to IoTDB protected by circuit breaker with retries."""
+    """
+    Write tablet batch to IoTDB protected by circuit breaker with retries.
+
+    Args:
+        session (Session): Active IoTDB client session.
+        breaker (CircuitBreaker): Circuit breaker guarding IoTDB writes.
+        timestamps (list[int]): List of epoch millisecond timestamps.
+        rows (list[list]): 2D list of row measurement values matching MEASUREMENTS schema.
+        device_path (str): Target IoTDB device path string.
+
+    Returns:
+        bool: True if write succeeded, False if aborted or circuit breaker open.
+
+    """
     tablet = Tablet(device_path, MEASUREMENTS, DATA_TYPES, rows, timestamps)
     for attempt in range(1, Config.IOTDB_WRITE_MAX_RETRIES + 1):
         try:
@@ -192,28 +311,63 @@ def flush_batch_to_iotdb(
 
 
 class BufferedRecord:
-    """One validated Kafka message, ready to be written to IoTDB."""
+    """
+    One validated Kafka message, ready to be written to IoTDB.
+
+    Attributes:
+        device_path (str): Fully qualified IoTDB device path.
+        timestamp (int): Millisecond unix epoch timestamp.
+        row (list): Schema-aligned row values.
+        raw_message (confluent_kafka.Message): Original Kafka message object.
+
+    """
 
     __slots__ = ("device_path", "timestamp", "row", "raw_message")
 
     def __init__(self, device_path: str, timestamp: int, row: list, raw_message) -> None:
-        """Initialize buffered record with metadata, row values, and raw Kafka message."""
+        """
+        Initialize buffered record with metadata, row values, and raw Kafka message.
+
+        Args:
+            device_path (str): Fully qualified IoTDB device path.
+            timestamp (int): Millisecond unix epoch timestamp.
+            row (list): Schema-aligned row values.
+            raw_message (confluent_kafka.Message): Original Kafka message.
+
+        """
         self.device_path = device_path
         self.timestamp = timestamp
         self.row = row
         self.raw_message = raw_message
 
 
-def group_by_device(records) -> "OrderedDict[str, list[BufferedRecord]]":
-    """Partition buffered records by device path preserving encounter order."""
+def group_by_device(records: list[BufferedRecord]) -> "OrderedDict[str, list[BufferedRecord]]":
+    """
+    Partition buffered records by device path preserving encounter order.
+
+    Args:
+        records (list[BufferedRecord]): List of buffered records to partition.
+
+    Returns:
+        OrderedDict[str, list[BufferedRecord]]: Mapping of device path to list of records.
+
+    """
     groups: "OrderedDict[str, list[BufferedRecord]]" = OrderedDict()
     for record in records:
         groups.setdefault(record.device_path, []).append(record)
     return groups
 
 
-def send_to_dlq(dlq_producer: Producer, raw_messages, reason: bytes = b"iotdb_write_failed_after_retries"):
-    """Route failed or unparseable messages to Dead Letter Queue topic."""
+def send_to_dlq(dlq_producer: Producer, raw_messages: list, reason: bytes = b"iotdb_write_failed_after_retries") -> None:
+    """
+    Route failed or unparseable messages to Dead Letter Queue topic.
+
+    Args:
+        dlq_producer (Producer): Kafka producer configured for DLQ writes.
+        raw_messages (list): Iterable of failed raw Kafka message objects.
+        reason (bytes, optional): Header reason byte string. Defaults to b"iotdb_write_failed_after_retries".
+
+    """
     for msg in raw_messages:
         try:
             dlq_producer.produce(
@@ -227,8 +381,14 @@ def send_to_dlq(dlq_producer: Producer, raw_messages, reason: bytes = b"iotdb_wr
     dlq_producer.flush(10)
 
 
-def run_consumer():
-    """Main consumer loop reading Kafka telemetry and writing batches to IoTDB."""
+def run_consumer() -> None:
+    """
+    Main consumer loop reading Kafka telemetry and writing batches to IoTDB.
+
+    Orchestrates continuous ingestion, parsing, batching, circuit breaker protected
+    IoTDB writes, dead-letter queuing, and health checking.
+
+    """
     health = start_health_server(Config.HEALTH_CHECK_PORT, "kafka-consumer")
     health.set_check("kafka_connected", False, "not yet attempted")
     health.set_check("iotdb_connected", False, "not yet attempted")

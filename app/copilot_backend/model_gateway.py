@@ -1,4 +1,14 @@
-"""Thin wrapper around OpenAI SDK for local vLLM OpenAI-compatible server."""
+"""Wrapper around OpenAI SDK for local vLLM OpenAI-compatible server streaming.
+
+Handles streaming chat completion requests, fragments accumulation for function tool
+calling schemas, and connection error translation.
+
+Exported Classes:
+    ModelGatewayError: Raised when vLLM connectivity fails or payload is malformed.
+
+Exported Functions:
+    stream_chat_completion: Streams chat completion tokens and intact tool call events.
+"""
 
 from __future__ import annotations
 
@@ -15,9 +25,9 @@ logger = logging.getLogger(__name__)
 
 
 class ModelGatewayError(Exception):
-    """Raised when vLLM connection fails or response is malformed."""
-
+    """Raised when vLLM connection fails or response payload is malformed."""
     pass
+
 
 
 def stream_chat_completion(

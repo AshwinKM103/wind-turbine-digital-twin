@@ -1,15 +1,28 @@
 #!/usr/bin/env python3
-"""Registry and scoring model for the 14 turbine subsystem digital twin assets.
+"""
+Registry and scoring model for 14 turbine subsystem digital twin assets.
 
 Defines static asset metadata, 2D/3D coordinates, sensor threshold bindings,
-and piecewise linear health score evaluation.
+and continuous piecewise linear health score evaluation.
+
+The implementation supports:
+
+    - 3D local coordinate and SVG 2D layout definitions
+    - Shared scope dynamic threshold overrides and fallback resolution
+    - Piecewise linear continuous health score evaluation (0-100)
+
+Key classes / functions:
+
+    - Subsystem: Digital-twin metadata for a ThingsBoard subsystem asset.
+    - SensorLimits: Warning and alarm boundaries for scored telemetry keys.
+    - score_subsystem: Evaluate health score, status, and alert count for an asset.
+
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass
 
-# Piecewise continuous health score thresholds.
 PERFECT_SCORE = 100.0
 NOMINAL_FLOOR = 90.0
 WARN_FLOOR = 60.0
@@ -23,7 +36,15 @@ STEAM_TURBINE_RIG_ASSET_ID = "9f243750-b002-11f1-b871-bd111a5de747"
 
 @dataclass(frozen=True)
 class SensorLimits:
-    """Warn/alarm limits for one telemetry key, plus where they came from."""
+    """
+    Warning and alarm boundary limits for a telemetry key.
+
+    Args:
+        warn (float): Warning boundary value.
+        alarm (float): Critical alarm boundary value.
+        source (str, optional): Provenance of the limit values. Defaults to 'static_default'.
+
+    """
 
     warn: float
     alarm: float
@@ -31,13 +52,26 @@ class SensorLimits:
 
     @property
     def critical(self) -> float:
-        """Value at which the health score reaches zero."""
+        """
+        Value at which the health score reaches zero.
+
+        Returns:
+            float: Alarm threshold plus difference between alarm and warning.
+
+        """
         return self.alarm + (self.alarm - self.warn)
 
 
 @dataclass(frozen=True)
 class ScoredSensor:
-    """A telemetry key that contributes to a subsystem's health score."""
+    """
+    Telemetry key contributing to a subsystem's health score.
+
+    Args:
+        key (str): Sensor telemetry key name.
+        fallback (SensorLimits): Default warning and alarm limit boundaries.
+
+    """
 
     key: str
     fallback: SensorLimits
@@ -45,7 +79,20 @@ class ScoredSensor:
 
 @dataclass(frozen=True)
 class Subsystem:
-    """Static digital-twin metadata for one ThingsBoard asset."""
+    """
+    Static digital-twin metadata for one ThingsBoard asset.
+
+    Args:
+        asset_id (str): ThingsBoard asset UUID.
+        name (str): Human-readable subsystem name.
+        mesh_id (str): Identifier of the corresponding 3D GLB mesh node.
+        display_tier (str): Visual priority tier ('primary', 'secondary').
+        position_3d (dict[str, float]): Local 3D coordinates in meters.
+        position_2d (dict[str, float]): 2D diagram coordinate points in SVG viewBox.
+        primary_sensors (tuple[str, ...]): Headline sensor keys bound to this asset.
+        scored_sensors (tuple[ScoredSensor, ...]): Channels evaluated for health scoring.
+
+    """
 
     asset_id: str
     name: str
@@ -58,6 +105,7 @@ class Subsystem:
 
     @property
     def orientation(self) -> dict[str, float]:
+
         """Returns default Euler orientation angles."""
         return {"x": 0.0, "y": 0.0, "z": 0.0}
 
@@ -242,7 +290,17 @@ SUBSYSTEMS_BY_ASSET_ID: dict[str, Subsystem] = {s.asset_id: s for s in SUBSYSTEM
 
 
 def resolve_limits(sensor: ScoredSensor, device_thresholds: dict[str, float]) -> SensorLimits:
-    """Resolves sensor limits from device shared scope thresholds or static fallbacks."""
+    """
+    Resolve sensor limits from device shared scope thresholds or static fallbacks.
+
+    Args:
+        sensor (ScoredSensor): Sensor definition containing static fallback limits.
+        device_thresholds (dict[str, float]): Dictionary of device-level threshold attributes.
+
+    Returns:
+        SensorLimits: Resolved warning and alarm threshold values.
+
+    """
     warn = device_thresholds.get(f"threshold_{sensor.key}_warn")
     alarm = device_thresholds.get(f"threshold_{sensor.key}_alarm")
     if warn is None or alarm is None or alarm <= warn:
@@ -251,7 +309,22 @@ def resolve_limits(sensor: ScoredSensor, device_thresholds: dict[str, float]) ->
 
 
 def score_value(value: float, limits: SensorLimits) -> float:
-    """Maps measurement value to a continuous 0-100 health score."""
+    """
+    Map an observed measurement value to a continuous 0-100 health score.
+
+    Args:
+        value (float): Observed telemetry value.
+        limits (SensorLimits): Operational limit thresholds.
+
+    Returns:
+        float: Calculated health score between 0.0 and 100.0.
+
+    Example:
+        >>> limits = SensorLimits(warn=30.0, alarm=40.0)
+        >>> score_value(25.0, limits)
+        91.66666666666667
+
+    """
     span = limits.alarm - limits.warn
     if limits.warn <= 0.0 or span <= 0.0:
         return PERFECT_SCORE
@@ -269,7 +342,16 @@ def score_value(value: float, limits: SensorLimits) -> float:
 
 
 def status_for_score(score: float) -> str:
-    """Classifies health score into NORMAL, WARNING, or ALARM status."""
+    """
+    Classify a health score into NORMAL, WARNING, or ALARM status.
+
+    Args:
+        score (float): Computed health score (0-100).
+
+    Returns:
+        str: Status tag ('NORMAL', 'WARNING', or 'ALARM').
+
+    """
     if score <= ALARM_STATUS_THRESHOLD:
         return "ALARM"
     if score <= WARNING_STATUS_THRESHOLD:
@@ -282,7 +364,24 @@ def score_subsystem(
     metrics: dict[str, float],
     device_thresholds: dict[str, float],
 ) -> tuple[float, str, int]:
-    """Computes healthScore, healthStatus, and activeAlertsCount for a subsystem."""
+    """
+    Compute health score, status, and alert count for a subsystem.
+
+    Args:
+        subsystem (Subsystem): Subsystem asset metadata.
+        metrics (dict[str, float]): Current telemetry sensor readings.
+        device_thresholds (dict[str, float]): Active device threshold attributes.
+
+    Returns:
+        tuple[float, str, int]: Tuple of (health_score, health_status, active_alerts_count).
+
+    Example:
+        >>> sub = SUBSYSTEMS[0]
+        >>> score, status, alerts = score_subsystem(sub, {"PT_109A": 32.0}, {})
+        >>> score > 0.0
+        True
+
+    """
     worst_score = PERFECT_SCORE
     alerts = 0
 
@@ -298,3 +397,4 @@ def score_subsystem(
 
     score = round(max(ZERO_SCORE, min(PERFECT_SCORE, worst_score)), 1)
     return score, status_for_score(score), alerts
+

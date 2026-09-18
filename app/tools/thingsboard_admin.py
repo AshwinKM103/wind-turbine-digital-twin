@@ -1,5 +1,21 @@
-#!/usr/bin/env python3
-"""Canonical CLI administration tool for Wind Turbine Digital Twin in ThingsBoard."""
+"""
+Canonical CLI administration tool for Wind Turbine Digital Twin in ThingsBoard.
+
+Provides command-line interfaces for managing authentication, device topologies,
+custom dashboard widgets, rule chains, device metadata, health checks, and dashboard configurations.
+
+The implementation supports:
+
+    - Domain subcommand registration (auth, entity, widget, rulechain, metadata, health, dashboard)
+    - Output formatting in plain text or structured JSON
+    - Dynamic credential resolution from environment and CLI flags
+
+Key classes / functions:
+
+    - build_parser: Construct CLI argument parser hierarchy with registered domain subparsers.
+    - main: Primary CLI execution dispatching to selected subcommand handler.
+
+"""
 
 from __future__ import annotations
 
@@ -9,7 +25,6 @@ import sys
 from pathlib import Path
 from typing import Optional, Sequence
 
-# Ensure repository root is on sys.path
 REPO_ROOT = Path(__file__).resolve().parents[2]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
@@ -28,13 +43,18 @@ logger = logging.getLogger("tb_admin")
 
 
 def build_parser() -> argparse.ArgumentParser:
-    """Build the canonical argument parser with all global options and subcommands."""
+    """
+    Build the canonical argument parser with global options and domain subcommands.
+
+    Returns:
+        argparse.ArgumentParser: Fully configured CLI argument parser.
+
+    """
     parser = argparse.ArgumentParser(
         prog="thingsboard_admin.py",
         description="Canonical CLI tool for Wind Turbine Digital Twin ThingsBoard administration.",
     )
 
-    # Global options
     parser.add_argument("--tb-host", default=None, help="ThingsBoard host (default: $TB_HOST or 'thingsboard')")
     parser.add_argument("--tb-port", type=int, default=None, help="ThingsBoard HTTP port (default: $TB_PORT or 8080)")
     parser.add_argument("--tenant-name", default=None, help="Tenant name (default: $TENANT_NAME or 'zephyr-energy')")
@@ -48,7 +68,6 @@ def build_parser() -> argparse.ArgumentParser:
 
     subparsers = parser.add_subparsers(dest="command", required=True)
 
-    # Register each domain's subparsers
     register_auth_parser(subparsers)
     register_entity_parser(subparsers)
     register_widget_parser(subparsers)
@@ -61,6 +80,16 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def main(argv: Optional[Sequence[str]] = None) -> int:
+    """
+    Parse arguments and execute corresponding administrative subcommand handler.
+
+    Args:
+        argv (Optional[Sequence[str]], optional): Command-line argument vector. Defaults to None (sys.argv[1:]).
+
+    Returns:
+        int: Process exit code (0 for success, non-zero for error or interruption).
+
+    """
     parser = build_parser()
     args = parser.parse_args(argv)
 

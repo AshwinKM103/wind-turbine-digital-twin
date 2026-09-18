@@ -1,4 +1,21 @@
-"""Subsystem health score seeding subcommands for thingsboard_admin."""
+"""
+Subsystem health score seeding subcommands for ThingsBoard administration.
+
+Populates initial baseline numeric health scores, alert counters, and health status
+telemetry attributes across all registered turbine rig and subsystem assets.
+
+The implementation supports:
+
+    - Server-scope attribute and timeseries initialization across asset hierarchy
+    - Configurable baseline score seeding (default 100)
+    - Status evaluation mapped to score thresholds
+
+Key classes / functions:
+
+    - HealthCommand: CLI command handler for subsystem health score seeding.
+    - register_health_parser: Subparser registration entry point.
+
+"""
 
 from __future__ import annotations
 
@@ -14,11 +31,25 @@ logger = logging.getLogger("tb_admin.health")
 
 
 class HealthCommand(BaseCommand):
-    """Subsystem health management command."""
+    """
+    Subsystem health score initialization command.
+
+    Encapsulates routines to seed initial health scores across turbine subsystem assets.
+
+    """
 
     @classmethod
     def run_seed_health(cls, args: argparse.Namespace) -> int:
-        """Seeds baseline subsystem health scores (default 100) across asset attributes/timeseries."""
+        """
+        Seed baseline subsystem health scores across asset attributes and timeseries.
+
+        Args:
+            args (argparse.Namespace): Parsed CLI command options with baseline score.
+
+        Returns:
+            int: 0 on success, non-zero on failure.
+
+        """
         cfg, session, http = cls.init_session(args, require_password=True, is_sysadmin=False)
         if not http:
             return 1
@@ -26,7 +57,6 @@ class HealthCommand(BaseCommand):
         default_score = float(getattr(args, "score", 100.0) or 100.0)
         now_ms = int(time.time() * 1000)
 
-        # 1. Root rig asset
         rig_payload = {
             "healthScore": default_score,
             "healthStatus": "HEALTHY" if default_score >= 90 else "DEGRADED",
@@ -40,7 +70,6 @@ class HealthCommand(BaseCommand):
         except Exception as e:
             logger.warning("Failed seeding health for Root Rig: %s", e)
 
-        # 2. 14 Subsystems
         updated = 0
         for sub in SUBSYSTEMS:
             sub_payload = {
@@ -65,6 +94,13 @@ run_seed_health = HealthCommand.run_seed_health
 
 
 def register_health_parser(subparsers: argparse._SubParsersAction) -> None:
+    """
+    Register health seeding subcommands with main CLI parser.
+
+    Args:
+        subparsers (argparse._SubParsersAction): Subparser container to populate.
+
+    """
     parser = subparsers.add_parser("health", help="Subsystem health management")
     health_subs = parser.add_subparsers(dest="health_command", required=True)
 

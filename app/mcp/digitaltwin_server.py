@@ -1,4 +1,11 @@
-"""FastMCP server for IoTDB, PostgreSQL, OpenBao, ThingsBoard, and fleet topology."""
+"""FastMCP server exposing digital twin diagnostic tools across the ecosystem.
+
+Provides MCP tools for executing read queries against Apache IoTDB, PostgreSQL fleet store,
+OpenBao secret vault, ThingsBoard REST endpoints, and customer topology inspection.
+
+Exported Objects:
+    mcp: Configured FastMCP server instance.
+"""
 
 from __future__ import annotations
 
@@ -10,6 +17,7 @@ from mcp.server.fastmcp import FastMCP
 
 mcp = FastMCP("digitaltwin-tools")
 REPO_ROOT = Path(__file__).resolve().parents[2]
+
 
 
 # --- IoTDB Tools ---

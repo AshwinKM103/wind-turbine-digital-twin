@@ -1,4 +1,23 @@
-"""Dashboard deployment and visibility management subcommands for thingsboard_admin."""
+"""
+Dashboard deployment and visibility management subcommands for ThingsBoard administration.
+
+Provides automated provisioning, backup, visibility parking, and layout construction
+for operational SCADA, vibration rotordynamics, thermodynamics, and 3D digital twin dashboards.
+
+The implementation supports:
+
+    - Deployment of pre-configured Gridster widget dashboards via REST APIs
+    - Visibility toggling and tenant parking via direct PostgreSQL queries
+    - Comprehensive JSON backup dumps for disaster recovery
+
+Key classes / functions:
+
+    - DashboardCommand: CLI command handler for deploy, status, backup, and visibility toggling.
+    - deploy_split_dashboards: Deploys SCADA mimic, rotordynamics, thermodynamics, and threshold boards.
+    - deploy_babylon_dashboard: Deploys 3D Babylon.js interactive digital twin dashboard.
+    - register_dashboard_parser: Subparser registration entry point.
+
+"""
 
 from __future__ import annotations
 
@@ -36,12 +55,34 @@ DASHBOARDS_MAP: dict[str, dict[str, str]] = {
 
 
 def _run_psql(sql: str) -> str:
+    """
+    Execute SQL command inside the ThingsBoard PostgreSQL container.
+
+    Args:
+        sql (str): SQL query or DDL statement to execute.
+
+    Returns:
+        str: Standard output from psql command.
+
+    """
     cmd = ["docker", "exec", "-i", "thingsboard-postgres", "psql", "-U", "thingsboard", "-d", "thingsboard", "-t", "-A", "-c", sql]
     res = subprocess.run(cmd, capture_output=True, text=True, check=True)
     return res.stdout.strip()
 
 
 def _get_or_create_dash_id(http: ThingsboardHttpClient, title: str, fallback_title: str | None = None) -> str:
+    """
+    Look up existing dashboard ID by title or create a minimal shell dashboard.
+
+    Args:
+        http (ThingsboardHttpClient): Authenticated HTTP client.
+        title (str): Desired dashboard title.
+        fallback_title (str | None, optional): Legacy or alternate title to check. Defaults to None.
+
+    Returns:
+        str: Dashboard entity UUID string.
+
+    """
     res = http.get("/api/tenant/dashboards?pageSize=100&page=0")
     dashboards = res.get("data", []) if isinstance(res, dict) else []
     for d in dashboards:
@@ -64,6 +105,17 @@ def _get_or_create_dash_id(http: ThingsboardHttpClient, title: str, fallback_tit
 
 
 def deploy_split_dashboards(http: ThingsboardHttpClient, base_url: str) -> None:
+    """
+    Deploy operational split dashboards into ThingsBoard.
+
+    Configures SCADA process mimic, vibration rotordynamics, thermodynamics,
+    and threshold dashboards with appropriate entity aliases and chart configurations.
+
+    Args:
+        http (ThingsboardHttpClient): Authenticated HTTP client.
+        base_url (str): Target ThingsBoard base URL string.
+
+    """
     device_id = os.getenv("TB_DEVICE_ID", DEFAULT_DEVICE_ID)
     root_asset_id = os.getenv("TB_ROOT_ASSET_ID", DEFAULT_ROOT_ASSET_ID)
 
@@ -130,6 +182,16 @@ def deploy_split_dashboards(http: ThingsboardHttpClient, base_url: str) -> None:
 
 
 def deploy_babylon_dashboard(http: ThingsboardHttpClient) -> None:
+    """
+    Deploy the dedicated 3D Babylon.js interactive digital twin dashboard.
+
+    Assembles dashboard configuration containing tenant.turbine_3d_babylon widget,
+    subsystem relations aliases, and camera view presets.
+
+    Args:
+        http (ThingsboardHttpClient): Authenticated HTTP client.
+
+    """
     device_id = os.getenv("TB_DEVICE_ID", DEFAULT_DEVICE_ID)
     root_asset_id = os.getenv("TB_ROOT_ASSET_ID", DEFAULT_ROOT_ASSET_ID)
     dash_id = "3503e260-b0cc-11f1-9bfc-5d2538928d0b"
@@ -166,10 +228,26 @@ def deploy_babylon_dashboard(http: ThingsboardHttpClient) -> None:
 
 
 class DashboardCommand(BaseCommand):
-    """Dashboard deployment and maintenance command."""
+    """
+    Dashboard deployment, visibility management, and backup command.
+
+    Encapsulates CLI routines to deploy predefined dashboards, toggle tenant
+    ownership for visibility isolation, and dump configuration snapshots.
+
+    """
 
     @classmethod
     def run_deploy_dashboard(cls, args: argparse.Namespace) -> int:
+        """
+        Deploy configured dashboard layouts into ThingsBoard.
+
+        Args:
+            args (argparse.Namespace): CLI options specifying target ('split', 'babylon', 'all').
+
+        Returns:
+            int: 0 on success, non-zero on failure.
+
+        """
         cfg, session, http = cls.init_session(args, require_password=True, is_sysadmin=False)
         if not http:
             return 1
@@ -183,6 +261,16 @@ class DashboardCommand(BaseCommand):
 
     @classmethod
     def run_dashboard_status(cls, args: argparse.Namespace) -> int:
+        """
+        Query database and report visibility status for all dashboards.
+
+        Args:
+            args (argparse.Namespace): Parsed CLI command options.
+
+        Returns:
+            int: 0 on success.
+
+        """
         res = _run_psql("SELECT id, tenant_id FROM dashboard")
         db_tenants = {}
         for line in res.splitlines():
@@ -200,6 +288,16 @@ class DashboardCommand(BaseCommand):
 
     @classmethod
     def run_dashboard_backup(cls, args: argparse.Namespace) -> int:
+        """
+        Backup dashboard configurations from ThingsBoard to local JSON files.
+
+        Args:
+            args (argparse.Namespace): CLI arguments including optional output directory.
+
+        Returns:
+            int: 0 on success.
+
+        """
         out_dir = Path(getattr(args, "output", None) or BACKUP_DIR)
         out_dir.mkdir(parents=True, exist_ok=True)
         cfg, session, http = cls.init_session(args, require_password=False, is_sysadmin=False)
@@ -223,6 +321,16 @@ class DashboardCommand(BaseCommand):
 
     @classmethod
     def run_dashboard_isolate_3d(cls, args: argparse.Namespace) -> int:
+        """
+        Park all dashboards except Babylon 3D by reassigning their tenant IDs.
+
+        Args:
+            args (argparse.Namespace): Parsed CLI command options.
+
+        Returns:
+            int: 0 on completion.
+
+        """
         for key, info in DASHBOARDS_MAP.items():
             tenant = ZEPHYR_TENANT_ID if key == "babylon3d" else PARKED_TENANT_ID
             _run_psql(f"UPDATE dashboard SET tenant_id = '{tenant}' WHERE id = '{info['id']}';")
@@ -231,6 +339,16 @@ class DashboardCommand(BaseCommand):
 
     @classmethod
     def run_dashboard_visibility(cls, args: argparse.Namespace) -> int:
+        """
+        Toggle visibility of a single dashboard by updating its tenant assignment.
+
+        Args:
+            args (argparse.Namespace): CLI options with target dashboard name and visible flag.
+
+        Returns:
+            int: 0 on success, 1 on invalid dashboard name.
+
+        """
         name = getattr(args, "name", None)
         visible = getattr(args, "visible", True)
         if name not in DASHBOARDS_MAP:
@@ -251,6 +369,13 @@ run_dashboard_visibility = DashboardCommand.run_dashboard_visibility
 
 
 def register_dashboard_parser(subparsers: argparse._SubParsersAction) -> None:
+    """
+    Register dashboard management subcommands with main CLI parser.
+
+    Args:
+        subparsers (argparse._SubParsersAction): Parent subparser collection.
+
+    """
     parser = subparsers.add_parser("dashboard", help="Dashboard deployment and maintenance")
     dash_subs = parser.add_subparsers(dest="dashboard_command", required=True)
 

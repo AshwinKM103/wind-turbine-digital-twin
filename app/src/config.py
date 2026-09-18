@@ -1,4 +1,21 @@
-"""Centralized environment-variable configuration for runtime services."""
+"""
+Centralized environment-variable configuration for runtime services.
+
+Parses, converts, and validates runtime settings from environment variables
+and .env files for Kafka, IoTDB, PostgreSQL, and service health endpoints.
+
+The implementation supports:
+
+    - Type-safe conversions for int, float, and boolean values
+    - Default fallbacks for optional deployment settings
+    - Relational database and connection validation routines
+
+Key classes / functions:
+
+    - ConfigError: Raised when required configuration values are missing.
+    - Config: Typed runtime configuration namespace.
+
+"""
 
 import os
 
@@ -11,7 +28,6 @@ except ImportError:
 
 
 def _get_int(name: str, default: int) -> int:
-    """Parse an integer environment variable with fallback."""
     raw = os.environ.get(name)
     if raw is None or raw == "":
         return default
@@ -22,7 +38,6 @@ def _get_int(name: str, default: int) -> int:
 
 
 def _get_float(name: str, default: float) -> float:
-    """Parse a float environment variable with fallback."""
     raw = os.environ.get(name)
     if raw is None or raw == "":
         return default
@@ -33,7 +48,6 @@ def _get_float(name: str, default: float) -> float:
 
 
 def _get_bool(name: str, default: bool) -> bool:
-    """Parse a boolean environment variable with fallback."""
     raw = os.environ.get(name)
     if raw is None or raw == "":
         return default
@@ -50,7 +64,13 @@ class ConfigError(Exception):
 
 
 class Config:
-    """Runtime configuration loaded from environment variables."""
+    """
+    Runtime configuration loaded from environment variables and defaults.
+
+    Provides typed access to Kafka broker endpoints, database credentials,
+    batch intervals, and retry parameters.
+
+    """
     # Kafka
     KAFKA_BOOTSTRAP_SERVERS = os.environ.get("KAFKA_BOOTSTRAP_SERVERS_INTERNAL") or os.environ.get(
         "KAFKA_BOOTSTRAP_SERVERS", "localhost:19092"
@@ -58,6 +78,7 @@ class Config:
     KAFKA_TOPIC = os.environ.get("KAFKA_TOPIC", "turbine.telemetry.raw.v1")
     KAFKA_GROUP_ID = os.environ.get("KAFKA_GROUP_ID", "iotdb-writer-group")
     DLQ_TOPIC = os.environ.get("DLQ_TOPIC", "turbine.telemetry.dlq")
+
 
     # IoTDB
     IOTDB_HOST = os.environ.get("IOTDB_HOST", "localhost")

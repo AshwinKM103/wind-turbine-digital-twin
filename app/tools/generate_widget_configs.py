@@ -1,4 +1,20 @@
-"""Generate and validate widget configuration descriptors from registry."""
+"""
+Widget configuration descriptor generator and validator.
+
+Validates widget descriptor files against widget-registry.json to ensure all
+ThingsBoard custom widget configurations exist and contain valid JSON.
+
+The implementation supports:
+
+    - Integrity validation of custom widget bundles
+    - Synchronous descriptor file checking
+    - Diagnostic logging for missing or malformed descriptors
+
+Key classes / functions:
+
+    - sync_widget_registry: Verify and synchronize widget descriptor files.
+
+"""
 
 from __future__ import annotations
 
@@ -15,7 +31,21 @@ logger = logging.getLogger("generate_widget_configs")
 
 
 def sync_widget_registry() -> int:
-    """Verify and synchronize widget descriptors against registry definitions."""
+    """
+    Verify and synchronize widget descriptors against registry definitions.
+
+    Reads widget-registry.json, checks that all referenced descriptor files exist,
+    and validates their JSON structure.
+
+    Returns:
+        int: 0 if all referenced descriptors exist and are valid, 1 on error.
+
+    Example:
+        >>> status = sync_widget_registry()
+        >>> status in (0, 1)
+        True
+
+    """
     if not REGISTRY_FILE.exists():
         logger.error("Widget registry file %s does not exist", REGISTRY_FILE)
         return 1
@@ -46,3 +76,4 @@ def sync_widget_registry() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(sync_widget_registry())
+

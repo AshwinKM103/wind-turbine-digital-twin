@@ -1,20 +1,15 @@
-"""Allowlisted dashboard-navigation actions for the turbine copilot.
+"""Allowlisted dashboard navigation actions and resolution for the turbine copilot.
 
-Per the copilot architecture plan: dashboard navigation is a UI operation,
-kept strictly separate from equipment control. The model never gets a
-dashboard ID or URL to invent — it names a dashboard by a fixed key from
-DASHBOARD_ALLOWLIST, and this module resolves that key to a real, verified
-ThingsBoard dashboard ID. The widget performs the actual navigation only
-after re-checking the returned dashboardId against its own copy of this
-same allowlist (see deploy_copilot_widget.py's chat_js DASHBOARD_ALLOWLIST).
+Enforces strict allowlisting for UI dashboard navigation suggestions, resolving symbolic
+dashboard keys to verified ThingsBoard dashboard UUIDs without equipment write access.
 
-Every dashboard in this deployment has a single "default" state (confirmed
-live via GET /api/tenant/dashboards on 2026-09-16), so "navigate to X" means
-"open dashboard X", not an in-dashboard state transition. IDs below were
-read from the live tenant and are only valid for this deployment — if a
-dashboard is recreated (new UUID), update this table and the widget's copy
-together.
+Exported Classes:
+    DashboardActionError: Raised when a requested dashboard key is not in allowlist.
+
+Exported Functions:
+    build_open_dashboard_action: Resolves allowlisted key to an OPEN_DASHBOARD action dictionary.
 """
+
 
 from __future__ import annotations
 

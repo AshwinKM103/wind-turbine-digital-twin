@@ -1,5 +1,20 @@
-#!/usr/bin/env python3
-"""Headless Playwright verification and screenshot capture for ThingsBoard dashboards."""
+"""
+Automated headless Playwright verification and screenshot capture for ThingsBoard dashboards.
+
+Navigates configured turbine monitoring dashboards, validates widget DOM elements
+and rendering bounding boxes, and captures full-resolution PNG verification artifacts.
+
+The implementation supports:
+
+    - Authenticated session lifecycle management through ThingsBoard Web UI
+    - Verification of Gridster widget layouts and dimensional bounds
+    - Headless browser screenshot export for regression validation
+
+Key classes / functions:
+
+    - main: Primary asynchronous test routine driving browser automation.
+
+"""
 
 import asyncio
 import logging
@@ -52,7 +67,17 @@ DASHBOARDS = {
 
 
 async def main() -> None:
-    """Capture verification screenshots across configured dashboards."""
+    """
+    Capture verification screenshots across configured dashboards using Playwright.
+
+    Logs into ThingsBoard web interface, traverses all target dashboards,
+    asserts that widgets are rendered with non-zero dimensions, and saves
+    screenshots into the reports directory.
+
+    Raises:
+        playwright.async_api.Error: If navigation or authentication encounters a browser error.
+
+    """
     reports_dir = Path("reports")
     reports_dir.mkdir(exist_ok=True)
 

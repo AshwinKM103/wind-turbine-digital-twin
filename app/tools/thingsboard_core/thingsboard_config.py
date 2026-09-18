@@ -1,4 +1,15 @@
-"""Configuration and 4-tier credential resolution for ThingsBoard."""
+"""Configuration and 4-tier credential resolution for ThingsBoard.
+
+Provides typed immutable configuration storage and hierarchical credential resolution
+(CLI argument -> Environment Variable -> Provisioning JSON Snapshot -> Built-in Default)
+for connecting to ThingsBoard instances as tenant admin or sysadmin.
+
+Exported Classes:
+    ThingsboardConfig: Immutable configuration holder for ThingsBoard endpoints and secrets.
+
+Exported Functions:
+    resolve_config: Resolves ThingsBoard configuration using 4-tier precedence.
+"""
 
 from __future__ import annotations
 
@@ -11,7 +22,18 @@ from typing import Any, Optional
 
 @dataclass(frozen=True)
 class ThingsboardConfig:
-    """Configuration for Thingsboard connection and credentials."""
+    """Configuration container for ThingsBoard connection endpoints and credentials.
+
+    Attributes:
+        host: Hostname or IP address of the ThingsBoard service.
+        port: HTTP REST API port.
+        tenant_name: Name identifier of the target tenant.
+        tenant_email: Email address of the tenant administrator account.
+        tenant_password: Optional secret password for tenant admin.
+        sysadmin_email: Email address for the root system administrator.
+        sysadmin_password: Optional secret password for root system administrator.
+        timeout_s: HTTP request timeout in seconds.
+    """
 
     host: str = "thingsboard"
     port: int = 8080
@@ -24,11 +46,19 @@ class ThingsboardConfig:
 
     @property
     def base_url(self) -> str:
+        """Returns the base URL formatted as 'http://<host>:<port>'."""
         return f"http://{self.host}:{self.port}"
 
 
 def _find_snapshot_password(results_dir: Path) -> Optional[str]:
-    """Inspect latest provisioning results JSON for tenant password if present."""
+    """Inspects the latest provisioning results JSON file for a saved password.
+
+    Args:
+        results_dir: Path to directory containing provisioning JSON outputs.
+
+    Returns:
+        Discovered password string if present in snapshot, else None.
+    """
     if not results_dir.exists():
         return None
     snapshots = sorted(results_dir.glob("provisioning-*.json"), reverse=True)
@@ -47,22 +77,33 @@ def resolve_config(
     cli_args: Optional[Any] = None,
     repo_root: Optional[Path] = None,
 ) -> ThingsboardConfig:
-    """4-tier precedence resolution:
+    """Resolves ThingsBoard connection configuration using 4-tier precedence.
 
-    1. CLI flag (if provided on cli_args)
-    2. Environment variable
-    3. provisioning-results JSON file
-    4. Default value
+    Resolution hierarchy:
+        1. CLI argument (attributes on cli_args)
+        2. Environment variable
+        3. Local provisioning-results snapshot file
+        4. Built-in system default
+
+    Args:
+        cli_args: Optional argparse Namespace containing command-line overrides.
+        repo_root: Optional custom repository root Path for locating provisioning snapshots.
+
+    Returns:
+        Frozen ThingsboardConfig populated with highest-priority discovered values.
+
+    Example:
+        >>> config = resolve_config()
+        >>> print(config.base_url)
+        http://thingsboard:8080
     """
     root = repo_root or Path(__file__).resolve().parents[3]
     results_dir = root / "provisioning" / "results"
 
-    # 1. Host & Port
     host = getattr(cli_args, "tb_host", None) or os.getenv("TB_HOST") or "thingsboard"
     port_val = getattr(cli_args, "tb_port", None) or os.getenv("TB_PORT") or 8080
     port = int(port_val)
 
-    # 2. Tenant name & email
     tenant_name = (
         getattr(cli_args, "tenant_name", None)
         or os.getenv("TENANT_NAME")
@@ -75,7 +116,6 @@ def resolve_config(
         or "zephyr-energy_admin@example.com"
     )
 
-    # 3. Tenant password
     tenant_password = (
         getattr(cli_args, "tenant_password", None)
         or os.getenv("TB_TENANT_ADMIN_PASSWORD")
@@ -83,7 +123,6 @@ def resolve_config(
         or _find_snapshot_password(results_dir)
     )
 
-    # 4. Sysadmin credentials
     sysadmin_email = (
         getattr(cli_args, "sysadmin_email", None)
         or getattr(cli_args, "tb_sysadmin_email", None)
@@ -108,3 +147,4 @@ def resolve_config(
         sysadmin_password=sysadmin_password,
         timeout_s=timeout_s,
     )
+

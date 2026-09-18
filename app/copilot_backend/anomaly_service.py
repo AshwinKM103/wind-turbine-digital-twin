@@ -1,27 +1,16 @@
 """Read-only anomaly-detection analytics service for the turbine copilot.
 
-Implements the "existing anomaly results" MVP item from the copilot
-architecture plan: a *separate, versioned* analytics service that returns
-structured evidence objects (score, severity, contributing sensors, model
-version) for the LLM to cite — never a raw telemetry dump the model is asked
-to eyeball itself.
+Implements per-subsystem multivariate Isolation Forest (scikit-learn) modeling on
+rolling telemetry baselines. Computes empirical quantile anomaly scores and relative
+sensor z-score contribution breakdowns.
 
-Model choice: per-subsystem multivariate Isolation Forest (scikit-learn).
-This is the standard unsupervised anomaly-detection algorithm for unlabeled,
-correlated multivariate sensor data — no labeled fault examples exist for
-this synthetic rig, an autoencoder/deep model would need GPU training infra
-this deployment doesn't have, and Isolation Forest is robust to the exact
-kind of correlated vibration/temperature/pressure features each subsystem
-groups together. Trained per (device, subsystem) pair, in-process, on a
-rolling telemetry baseline pulled through the same bounded tb_tools path
-used elsewhere in the copilot (never an unbounded query).
+Exported Classes:
+    AnomalyServiceError: Raised on modeling, validation, or telemetry retrieval failures.
 
-Caveat surfaced to the caller, not hidden: the per-feature "contribution"
-is a z-score-based heuristic (how many baseline standard deviations each
-sensor sits from its own mean), not a true SHAP/feature-attribution value.
-It is good enough to say *which* sensor is driving an anomaly, not to make
-a precise quantitative claim about it.
+Exported Functions:
+    get_analysis_results: Evaluates subsystem anomaly states and returns structured evidence.
 """
+
 
 from __future__ import annotations
 

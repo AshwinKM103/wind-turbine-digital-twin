@@ -1,5 +1,25 @@
-#!/usr/bin/env python3
-"""Hardened ThingsBoard REST API client, provisioner, and post-provisioning validator."""
+"""
+Hardened ThingsBoard REST API client, entity provisioner, and post-provisioning validator.
+
+Provides a robust HTTP client with exponential backoff, Bearer authentication token management,
+impersonation workflows, entity provisioning (tenants, users, devices, dashboards, datasources),
+and end-to-end post-provisioning validation routines.
+
+The implementation supports:
+
+    - Resilient REST request handling with exponential jittered retries
+    - Automated token refresh and tenant-scoped impersonation contexts
+    - Idempotent provisioning of tenants, tenant-admin users, MQTT devices, and dashboards
+    - Comprehensive post-provisioning assertion test suite
+
+Key classes / functions:
+
+    - ThingsboardConfig: Connection credentials and timeout configuration dataclass.
+    - ThingsboardClient: Core HTTP client executing authenticated API interactions.
+    - ThingsboardValidator: Read-only validation harness verifying multi-tenant topology.
+    - resolve_secret: Secret resolution utility supporting AWS Secrets Manager and disk files.
+
+"""
 
 from __future__ import annotations
 
@@ -33,8 +53,22 @@ def resolve_secret(
     env_vars: Optional[list[str]] = None,
     default: str = "",
 ) -> str:
-    """Resolve secret from AWS Secrets Manager, local secrets file, or environment variables."""
-    # 1. AWS Secrets Manager (if AWS_SECRET_NAME or AWS_SECRETS_MANAGER configured)
+    """
+    Resolve secret from AWS Secrets Manager, local secrets file, or environment variables.
+
+    Evaluates resolution sources in priority order: AWS Secrets Manager, local filesystem
+    credential files, environment variables, and finally default fallback.
+
+    Args:
+        secret_key (str): Key name of secret to resolve.
+        secrets_file (Optional[str], optional): Explicit path to JSON secrets file. Defaults to None.
+        env_vars (Optional[list[str]], optional): Candidate environment variable names. Defaults to None.
+        default (str, optional): Default value if secret cannot be found. Defaults to "".
+
+    Returns:
+        str: Resolved secret string value.
+
+    """
     aws_secret_name = os.environ.get("AWS_SECRET_NAME") or os.environ.get("TB_AWS_SECRET_NAME")
     if aws_secret_name:
         try:
@@ -50,7 +84,6 @@ def resolve_secret(
         except Exception as e:
             logger.warning(f"Failed to load secret '{secret_key}' from AWS Secrets Manager: {e}")
 
-    # 2. File-based secrets
     candidate_files = []
     if secrets_file:
         candidate_files.append(Path(secrets_file))
@@ -77,7 +110,6 @@ def resolve_secret(
             except Exception as e:
                 logger.warning(f"Could not read secrets file {fpath}: {e}")
 
-    # 3. Environment variables
     if env_vars:
         for var in env_vars:
             val = os.environ.get(var)
@@ -89,7 +121,23 @@ def resolve_secret(
 
 @dataclass
 class ThingsboardConfig:
-    """Configuration for Thingsboard connection."""
+    """
+    Configuration parameters for connecting to ThingsBoard REST API.
+
+    Attributes:
+        host (str): Hostname or IP address of ThingsBoard service.
+        port (int): Port number of ThingsBoard service.
+        admin_email (str): System administrator username or email.
+        admin_password (str): Administrator account password.
+        use_tls (bool): Flag indicating if HTTPS should be used.
+        verify_tls (bool): Flag indicating whether TLS certificates should be verified.
+        ca_cert (Optional[str]): Path to custom CA bundle file.
+        max_retries (int): Maximum HTTP retry attempts on transient network errors.
+        retry_backoff (float): Exponential backoff multiplier base.
+        base_url (str): Derived base URL string.
+        token (str): Active JWT Bearer authentication token.
+
+    """
 
     host: str = "thingsboard"
     port: int = 8080
@@ -103,17 +151,31 @@ class ThingsboardConfig:
     base_url: str = ""
     token: str = ""
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
+        """Construct base_url if not provided."""
         if not self.base_url:
             scheme = "https" if self.use_tls else "http"
             self.base_url = f"{scheme}://{self.host}:{self.port}"
 
 
 class ThingsboardClient:
-    """Production-hardened Thingsboard REST API Client with idempotency and retry logic."""
+    """
+    Production-hardened ThingsBoard REST API Client with idempotency and retry logic.
 
-    def __init__(self, config: ThingsboardConfig):
-        """Initialize HTTP session, headers, and TLS configuration."""
+    Attributes:
+        config (ThingsboardConfig): Active configuration settings.
+        session (requests.Session): HTTP request session.
+
+    """
+
+    def __init__(self, config: ThingsboardConfig) -> None:
+        """
+        Initialize HTTP session, default headers, and TLS configuration.
+
+        Args:
+            config (ThingsboardConfig): Connection configuration options.
+
+        """
         self.config = config
         self.session = requests.Session()
         self.session.headers.update({
@@ -126,7 +188,13 @@ class ThingsboardClient:
             self.session.verify = False
 
     def _auth_headers(self) -> dict[str, str]:
-        """Returns authorization headers for Bearer token authentication."""
+        """
+        Build authorization headers using current Bearer token.
+
+        Returns:
+            dict[str, str]: Authorization headers dictionary.
+
+        """
         if not self.config.token:
             return {}
         return {
@@ -141,7 +209,23 @@ class ThingsboardClient:
         retries: Optional[int] = None,
         **kwargs,
     ) -> requests.Response:
-        """Make HTTP request with exponential backoff on retryable errors."""
+        """
+        Make HTTP request with exponential backoff on retryable errors.
+
+        Args:
+            method (str): HTTP verb (e.g. 'GET', 'POST', 'DELETE').
+            endpoint (str): API path or relative endpoint URL.
+            retries (Optional[int], optional): Maximum retry count. Defaults to None.
+            **kwargs: Extra parameters passed to requests.Session.request.
+
+        Returns:
+            requests.Response: HTTP response object.
+
+        Raises:
+            requests.exceptions.RequestException: On terminal network or timeout error.
+            RuntimeError: If retry loop exhausts without returning a response.
+
+        """
         base = self.config.base_url.rstrip("/")
         path = endpoint if endpoint.startswith("/") else f"/{endpoint}"
         url = f"{base}{path}"
@@ -202,7 +286,13 @@ class ThingsboardClient:
         raise RuntimeError(f"Request failed after {max_attempts} attempts")
 
     def authenticate(self) -> bool:
-        """Authenticate with Thingsboard admin credentials."""
+        """
+        Authenticate with Thingsboard admin credentials.
+
+        Returns:
+            bool: True if authentication succeeded and token was assigned, False otherwise.
+
+        """
         logger.info(f"Connecting to Thingsboard at {self.config.base_url}...")
         try:
             response = self._request(
@@ -229,10 +319,17 @@ class ThingsboardClient:
             logger.error(f"❌ Authentication error: {e}")
             return False
 
-    # Activates pending tenant-admin user and swaps in a tenant-scoped token for entity creation.
-
     def get_user_activation_link(self, user_id: str) -> Optional[str]:
-        """Fetch the one-time activation link for a pending user (sys-admin context)."""
+        """
+        Fetch the one-time activation link for a pending user under sys-admin context.
+
+        Args:
+            user_id (str): ThingsBoard user ID UUID.
+
+        Returns:
+            Optional[str]: Activation URL string if obtainable, else None.
+
+        """
         try:
             resp = self._request(
                 "GET",
@@ -251,11 +348,16 @@ class ThingsboardClient:
         return None
 
     def activate_user(self, user_id: str, password: str) -> bool:
-        """Activate a pending user with a chosen password, without sending an email.
+        """
+        Activate a pending user with a chosen password without sending an email.
 
-        Returns True on success (including "already active", which is treated
-        as a no-op success since the goal -- a usable account -- is already
-        met).
+        Args:
+            user_id (str): User entity UUID.
+            password (str): Desired password to set.
+
+        Returns:
+            bool: True on successful activation, False otherwise.
+
         """
         link = self.get_user_activation_link(user_id)
         if not link:
@@ -289,9 +391,17 @@ class ThingsboardClient:
             return False
 
     def login_as_user(self, email: str, password: str) -> Optional[str]:
-        """Log in as a specific user and return a new auth token scoped to that
-        user's tenant. Does not mutate `self.config.token` -- pair with
-        `impersonate()` to actually act under the returned token."""
+        """
+        Log in as a specific user and return an auth token scoped to that user's tenant.
+
+        Args:
+            email (str): Target user email address.
+            password (str): Target user password.
+
+        Returns:
+            Optional[str]: Scoped Bearer token string if authenticated, else None.
+
+        """
         try:
             resp = self._request(
                 "POST",
@@ -310,8 +420,17 @@ class ThingsboardClient:
             return None
 
     def change_password(self, current_password: str, new_password: str) -> bool:
-        """Change the password of the currently-authenticated user (call within
-        an `impersonate()` block for that user's own token)."""
+        """
+        Change the password of the currently authenticated session user.
+
+        Args:
+            current_password (str): Current active password.
+            new_password (str): New password to configure.
+
+        Returns:
+            bool: True if password was updated, False otherwise.
+
+        """
         try:
             resp = self._request(
                 "POST",
@@ -324,7 +443,10 @@ class ThingsboardClient:
             return False
 
     def logout(self) -> None:
-        """Invalidate the current session token (best-effort) and clear it locally."""
+        """
+        Invalidate the current session token and clear local credentials.
+
+        """
         if not self.config.token:
             return
         try:
@@ -336,9 +458,16 @@ class ThingsboardClient:
 
     @contextmanager
     def impersonate(self, token: str) -> Iterator[None]:
-        """Temporarily swap in a different auth token (e.g. a tenant-admin's)
-        for the duration of the `with` block, restoring the previous token
-        (typically sys-admin's) on exit -- including on error."""
+        """
+        Context manager temporarily swapping in a scoped auth token.
+
+        Args:
+            token (str): Temporary Bearer token to activate during context block.
+
+        Yields:
+            Iterator[None]: Yields control within the temporary token scope.
+
+        """
         previous = self.config.token
         self.config.token = token
         try:
@@ -347,7 +476,17 @@ class ThingsboardClient:
             self.config.token = previous
 
     def _get_paginated(self, endpoint: str, page_size: int = 100) -> list[dict]:
-        """Fetch all pages from a paginated Thingsboard REST API endpoint."""
+        """
+        Fetch all entity pages from a paginated ThingsBoard REST API endpoint.
+
+        Args:
+            endpoint (str): Target REST endpoint path.
+            page_size (int, optional): Number of items per page. Defaults to 100.
+
+        Returns:
+            list[dict]: Consolidated list of all retrieved entity records across all pages.
+
+        """
         items: list[dict] = []
         page = 0
         delimiter = "&" if "?" in endpoint else "?"
@@ -395,18 +534,45 @@ class ThingsboardClient:
 
     # --- Tenant Management ---
     def list_tenants(self, page_size: int = 100) -> list[dict]:
-        """Lists tenants with pagination."""
+        """
+        List all tenants with pagination.
+
+        Args:
+            page_size (int, optional): Page batch size. Defaults to 100.
+
+        Returns:
+            list[dict]: List of tenant entity records.
+
+        """
         return self._get_paginated("/api/tenants", page_size=page_size)
 
     def find_tenant_by_name(self, name: str) -> Optional[dict]:
-        """Finds tenant by title."""
+        """
+        Find tenant entity by title name.
+
+        Args:
+            name (str): Tenant title to match.
+
+        Returns:
+            Optional[dict]: Matching tenant entity dictionary, or None if not found.
+
+        """
         for tenant in self.list_tenants():
             if tenant.get("title") == name:
                 return tenant
         return None
 
     def delete_tenant(self, tenant_id: str) -> bool:
-        """Deletes tenant by ID."""
+        """
+        Delete tenant by its entity UUID.
+
+        Args:
+            tenant_id (str): Tenant identifier UUID.
+
+        Returns:
+            bool: True if deletion succeeded, False otherwise.
+
+        """
         try:
             resp = self._request("DELETE", f"/api/tenant/{tenant_id}")
             return resp.status_code in (200, 202, 204)
@@ -420,7 +586,18 @@ class ThingsboardClient:
         description: str = "",
         force_recreate: bool = False,
     ) -> tuple[bool, Optional[str]]:
-        """Create tenant idempotently. Returns (success, tenant_id)."""
+        """
+        Create tenant entity idempotently.
+
+        Args:
+            name (str): Tenant title name.
+            description (str, optional): Tenant description text. Defaults to "".
+            force_recreate (bool, optional): If True, deletes existing tenant before re-creating. Defaults to False.
+
+        Returns:
+            tuple[bool, Optional[str]]: Tuple of (success_boolean, tenant_id_uuid).
+
+        """
         existing = self.find_tenant_by_name(name)
         if existing:
             tid = existing.get("id", {}).get("id")
@@ -462,11 +639,29 @@ class ThingsboardClient:
 
     # --- User Management ---
     def list_users(self, page_size: int = 100) -> list[dict]:
-        """Lists users with pagination."""
+        """
+        List all user entities visible in current session context.
+
+        Args:
+            page_size (int, optional): Page batch size. Defaults to 100.
+
+        Returns:
+            list[dict]: List of user entities.
+
+        """
         return self._get_paginated("/api/users", page_size=page_size)
 
     def find_user_by_email(self, email: str) -> Optional[dict]:
-        """Finds user by email address."""
+        """
+        Find user entity by email address.
+
+        Args:
+            email (str): Target email address.
+
+        Returns:
+            Optional[dict]: User entity dictionary if found, else None.
+
+        """
         try:
             resp = self._request("GET", f"/api/user?email={email}")
             if resp.status_code in (200, 201):
@@ -481,7 +676,16 @@ class ThingsboardClient:
         return None
 
     def delete_user(self, user_id: str) -> bool:
-        """Deletes user by ID."""
+        """
+        Delete user by entity UUID.
+
+        Args:
+            user_id (str): User identifier UUID.
+
+        Returns:
+            bool: True if deletion succeeded, False otherwise.
+
+        """
         try:
             resp = self._request("DELETE", f"/api/user/{user_id}")
             return resp.status_code in (200, 202, 204)
@@ -498,7 +702,22 @@ class ThingsboardClient:
         customer_id: Optional[str] = None,
         force_recreate: bool = False,
     ) -> tuple[bool, Optional[str], str]:
-        """Create user. Returns (success, user_id, temporary_password)."""
+        """
+        Create user entity idempotently with activation credentials.
+
+        Args:
+            tenant_id (str): Owning tenant identifier UUID.
+            email (str): User login email.
+            authority (str, optional): Role authority level ('TENANT_ADMIN', 'CUSTOMER_USER'). Defaults to "TENANT_ADMIN".
+            first_name (str, optional): User first name. Defaults to "Admin".
+            last_name (str, optional): User last name. Defaults to "User".
+            customer_id (Optional[str], optional): Customer entity UUID if CUSTOMER_USER. Defaults to None.
+            force_recreate (bool, optional): Whether to remove existing user first. Defaults to False.
+
+        Returns:
+            tuple[bool, Optional[str], str]: Tuple of (success_boolean, user_id_uuid, generated_temp_password).
+
+        """
         temp_pwd = secrets.token_urlsafe(16)
         existing = self.find_user_by_email(email)
         if existing:
@@ -549,18 +768,45 @@ class ThingsboardClient:
 
     # --- Datasource Management ---
     def list_datasources(self, page_size: int = 100) -> list[dict]:
-        """Lists datasources with pagination."""
+        """
+        List all configured datasources with pagination.
+
+        Args:
+            page_size (int, optional): Page batch size. Defaults to 100.
+
+        Returns:
+            list[dict]: List of datasource configuration dictionaries.
+
+        """
         return self._get_paginated("/api/datasources", page_size=page_size)
 
     def find_datasource_by_name(self, name: str) -> Optional[dict]:
-        """Finds datasource by name."""
+        """
+        Find datasource by its configured name.
+
+        Args:
+            name (str): Target datasource name.
+
+        Returns:
+            Optional[dict]: Datasource dictionary if found, else None.
+
+        """
         for ds in self.list_datasources():
             if ds.get("name") == name:
                 return ds
         return None
 
     def delete_datasource(self, datasource_id: str) -> bool:
-        """Deletes datasource by ID."""
+        """
+        Delete datasource by entity identifier UUID.
+
+        Args:
+            datasource_id (str): Datasource identifier UUID.
+
+        Returns:
+            bool: True if deletion succeeded, False otherwise.
+
+        """
         try:
             resp = self._request("DELETE", f"/api/datasource/{datasource_id}")
             return resp.status_code in (200, 202, 204)
@@ -579,7 +825,23 @@ class ThingsboardClient:
         db_password: str,
         force_recreate: bool = False,
     ) -> tuple[bool, Optional[str]]:
-        """Create PostgreSQL / JDBC datasource for Thingsboard."""
+        """
+        Create PostgreSQL / JDBC datasource for Thingsboard.
+
+        Args:
+            tenant_id (str): Owning tenant identifier UUID.
+            name (str): Datasource name.
+            db_host (str): Database server hostname.
+            db_port (int): Database server port number.
+            db_name (str): Target database name.
+            db_user (str): Database username.
+            db_password (str): Database user password.
+            force_recreate (bool, optional): Whether to delete existing datasource first. Defaults to False.
+
+        Returns:
+            tuple[bool, Optional[str]]: Tuple of (success_boolean, datasource_id_uuid).
+
+        """
         existing = self.find_datasource_by_name(name)
         if existing:
             ds_id = existing.get("id", {}).get("id")
@@ -626,18 +888,45 @@ class ThingsboardClient:
 
     # --- Device Management ---
     def list_devices(self, page_size: int = 100) -> list[dict]:
-        """List all devices visible to the current tenant admin."""
+        """
+        List all devices visible to the current tenant session.
+
+        Args:
+            page_size (int, optional): Page batch size. Defaults to 100.
+
+        Returns:
+            list[dict]: List of device entity dictionaries.
+
+        """
         return self._get_paginated("/api/tenant/devices", page_size=page_size)
 
     def find_device_by_name(self, name: str) -> Optional[dict]:
-        """Finds device by name."""
+        """
+        Find device entity by name.
+
+        Args:
+            name (str): Device name to find.
+
+        Returns:
+            Optional[dict]: Device dictionary if found, else None.
+
+        """
         for d in self.list_devices():
             if d.get("name") == name:
                 return d
         return None
 
     def delete_device(self, device_id: str) -> bool:
-        """Deletes device by ID."""
+        """
+        Delete device entity by identifier UUID.
+
+        Args:
+            device_id (str): Device entity UUID.
+
+        Returns:
+            bool: True if deleted successfully, False otherwise.
+
+        """
         try:
             resp = self._request("DELETE", f"/api/device/{device_id}")
             return resp.status_code in (200, 202, 204)
@@ -646,7 +935,16 @@ class ThingsboardClient:
             return False
 
     def get_device_credentials(self, device_id: str) -> Optional[dict]:
-        """Fetches credentials for a device."""
+        """
+        Fetch credentials object for a given device.
+
+        Args:
+            device_id (str): Device entity UUID.
+
+        Returns:
+            Optional[dict]: Credentials dictionary containing credentialsId token, or None.
+
+        """
         try:
             resp = self._request("GET", f"/api/device/{device_id}/credentials")
             if resp.status_code in (200, 201):
@@ -656,14 +954,34 @@ class ThingsboardClient:
         return None
 
     def get_device_token(self, device_id: str) -> Optional[str]:
-        """Fetches MQTT access token for a device."""
+        """
+        Fetch MQTT access token credential string for a device.
+
+        Args:
+            device_id (str): Device entity UUID.
+
+        Returns:
+            Optional[str]: MQTT access token string if present, else None.
+
+        """
         creds = self.get_device_credentials(device_id)
         if creds:
             return creds.get("credentialsId")
         return None
 
     def save_device_attributes(self, device_id: str, attributes: dict, scope: str = "SERVER_SCOPE") -> bool:
-        """Saves attributes for a device in the specified scope."""
+        """
+        Save attributes for a device in the specified scope.
+
+        Args:
+            device_id (str): Device entity UUID.
+            attributes (dict): Key-value attribute dictionary.
+            scope (str, optional): Attribute scope string. Defaults to "SERVER_SCOPE".
+
+        Returns:
+            bool: True if attributes saved successfully, False otherwise.
+
+        """
         try:
             resp = self._request(
                 "POST",
@@ -675,7 +993,17 @@ class ThingsboardClient:
             return False
 
     def get_device_attributes(self, device_id: str, scope: str = "SERVER_SCOPE") -> dict:
-        """Fetches attributes for a device in the specified scope."""
+        """
+        Fetch attributes for a device in the specified scope.
+
+        Args:
+            device_id (str): Device entity UUID.
+            scope (str, optional): Attribute scope string. Defaults to "SERVER_SCOPE".
+
+        Returns:
+            dict: Key-value dictionary of device attributes.
+
+        """
         try:
             resp = self._request("GET", f"/api/plugins/telemetry/DEVICE/{device_id}/values/attributes/{scope}")
             if resp.status_code in (200, 201):
@@ -696,7 +1024,20 @@ class ThingsboardClient:
         attributes: Optional[dict] = None,
         force_recreate: bool = False,
     ) -> tuple[bool, Optional[str], Optional[str]]:
-        """Create MQTT device with telemetry attributes and return (success, device_id, access_token)."""
+        """
+        Create MQTT device with telemetry attributes and return credentials.
+
+        Args:
+            tenant_id (str): Owning tenant identifier UUID.
+            device_name (str): Registered device name.
+            device_type (str, optional): Device type label. Defaults to "turbine".
+            attributes (Optional[dict], optional): Server attributes to assign. Defaults to None.
+            force_recreate (bool, optional): Whether to recreate if exists. Defaults to False.
+
+        Returns:
+            tuple[bool, Optional[str], Optional[str]]: Tuple of (success, device_id, access_token).
+
+        """
         existing = self.find_device_by_name(device_name)
         if existing:
             dev_id = existing.get("id", {}).get("id")
@@ -723,7 +1064,6 @@ class ThingsboardClient:
             )
             if resp.status_code in (200, 201):
                 dev_id = resp.json().get("id", {}).get("id")
-                # Retrieve generated credentials
                 creds = self.get_device_credentials(dev_id)
                 token = creds.get("credentialsId") if creds else None
                 if attributes:
@@ -746,18 +1086,45 @@ class ThingsboardClient:
 
     # --- Dashboard Management ---
     def list_dashboards(self, page_size: int = 100) -> list[dict]:
-        """Lists dashboards with pagination."""
+        """
+        List all dashboards visible to the current tenant session with pagination.
+
+        Args:
+            page_size (int, optional): Page batch size. Defaults to 100.
+
+        Returns:
+            list[dict]: List of dashboard dictionaries.
+
+        """
         return self._get_paginated("/api/dashboards", page_size=page_size)
 
     def find_dashboard_by_title(self, title: str) -> Optional[dict]:
-        """Finds dashboard by title."""
+        """
+        Find dashboard entity by title.
+
+        Args:
+            title (str): Dashboard title to locate.
+
+        Returns:
+            Optional[dict]: Dashboard dictionary if found, else None.
+
+        """
         for d in self.list_dashboards():
             if d.get("title") == title:
                 return d
         return None
 
     def delete_dashboard(self, dashboard_id: str) -> bool:
-        """Deletes dashboard by ID."""
+        """
+        Delete dashboard entity by identifier UUID.
+
+        Args:
+            dashboard_id (str): Dashboard entity UUID.
+
+        Returns:
+            bool: True if deletion succeeded, False otherwise.
+
+        """
         try:
             resp = self._request("DELETE", f"/api/dashboard/{dashboard_id}")
             return resp.status_code in (200, 202, 204)
@@ -773,7 +1140,20 @@ class ThingsboardClient:
         description: str = "",
         force_recreate: bool = False,
     ) -> tuple[bool, Optional[str]]:
-        """Create Thingsboard dashboard. Returns (success, dashboard_id)."""
+        """
+        Create Thingsboard dashboard idempotently.
+
+        Args:
+            tenant_id (str): Owning tenant identifier UUID.
+            title (str): Dashboard title string.
+            configuration (Optional[dict], optional): Gridster configuration dictionary. Defaults to None.
+            description (str, optional): Descriptive text. Defaults to "".
+            force_recreate (bool, optional): Whether to delete existing dashboard first. Defaults to False.
+
+        Returns:
+            tuple[bool, Optional[str]]: Tuple of (success, dashboard_id).
+
+        """
         existing = self.find_dashboard_by_title(title)
         if existing:
             dash_id = existing.get("id", {}).get("id")
@@ -817,16 +1197,39 @@ class ThingsboardClient:
 
 
 class ThingsboardValidator:
-    """Read-only post-provisioning checks; tallies results in checks_passed/checks_failed."""
+    """
+    Read-only post-provisioning validator verifying entities and configurations.
 
-    def __init__(self, client: ThingsboardClient):
-        """Initialize validator with client instance and reset pass/fail tallies."""
+    Attributes:
+        client (ThingsboardClient): Client instance executing REST verification calls.
+        checks_passed (int): Cumulative count of successful validation checks.
+        checks_failed (int): Cumulative count of failed validation checks.
+
+    """
+
+    def __init__(self, client: ThingsboardClient) -> None:
+        """
+        Initialize validator with client instance and reset pass/fail tallies.
+
+        Args:
+            client (ThingsboardClient): Authenticated Thingsboard client instance.
+
+        """
         self.client = client
         self.checks_passed = 0
         self.checks_failed = 0
 
     def check_tenant_exists(self, tenant_name: str) -> bool:
-        """Checks whether a tenant exists by title."""
+        """
+        Verify whether a tenant exists by title.
+
+        Args:
+            tenant_name (str): Tenant title to locate.
+
+        Returns:
+            bool: True if tenant exists, False otherwise.
+
+        """
         logger.info(f"Checking tenant '{tenant_name}'...")
         tenant = self.client.find_tenant_by_name(tenant_name)
         if tenant:
@@ -839,7 +1242,17 @@ class ThingsboardValidator:
         return False
 
     def check_user_exists(self, email: str, role_description: str = "user") -> bool:
-        """Checks whether a user exists by email address."""
+        """
+        Verify whether a user exists by email address.
+
+        Args:
+            email (str): Target email address.
+            role_description (str, optional): Role label for log reporting. Defaults to "user".
+
+        Returns:
+            bool: True if user exists, False otherwise.
+
+        """
         logger.info(f"Checking {role_description} '{email}'...")
         user = self.client.find_user_by_email(email)
         if user:
@@ -853,11 +1266,29 @@ class ThingsboardValidator:
         return False
 
     def check_tenant_admin_user(self, admin_email: str) -> bool:
-        """Checks whether the tenant admin user exists."""
+        """
+        Verify whether the tenant admin user account exists.
+
+        Args:
+            admin_email (str): Tenant admin email address.
+
+        Returns:
+            bool: True if admin user exists, False otherwise.
+
+        """
         return self.check_user_exists(admin_email, "tenant admin user")
 
     def check_datasource_health(self, tenant_name: str) -> bool:
-        """Advisory only: never fails, since telemetry reaches Thingsboard over MQTT, not a datasource."""
+        """
+        Verify advisory datasource presence for a given tenant.
+
+        Args:
+            tenant_name (str): Tenant title name.
+
+        Returns:
+            bool: True (advisory check).
+
+        """
         logger.info(f"Checking IoTDB datasource for '{tenant_name}'...")
         ds_name = f"iotdb-{tenant_name}"
         ds = self.client.find_datasource_by_name(ds_name)
@@ -871,13 +1302,20 @@ class ThingsboardValidator:
         return True
 
     def check_mqtt_devices(self, turbine_identifiers: list[str]) -> bool:
-        """Verifies that all specified MQTT devices exist in ThingsBoard."""
+        """
+        Verify that all specified MQTT device names exist in ThingsBoard.
+
+        Args:
+            turbine_identifiers (list[str]): List of turbine device identifier strings.
+
+        Returns:
+            bool: True if all specified devices exist, False otherwise.
+
+        """
         logger.info(f"Checking MQTT devices: {turbine_identifiers}...")
         devices = {d.get("name"): d for d in self.client.list_devices()}
         all_found = True
 
-        # Substring match: callers pass either a bare turbine id or a full
-        # "<customer>.<site>.<turbine>" device name.
         for ident in turbine_identifiers:
             found = False
             for dname in devices:
@@ -897,7 +1335,16 @@ class ThingsboardValidator:
         return all_found
 
     def check_dashboards(self, dashboard_titles: list[str]) -> bool:
-        """Verifies that all specified dashboards exist in ThingsBoard."""
+        """
+        Verify that all specified dashboards exist in ThingsBoard.
+
+        Args:
+            dashboard_titles (list[str]): List of dashboard title strings.
+
+        Returns:
+            bool: True if all dashboards exist, False otherwise.
+
+        """
         logger.info(f"Checking dashboards: {dashboard_titles}...")
         dashboards = {d.get("title"): d for d in self.client.list_dashboards()}
         all_found = True
@@ -921,7 +1368,18 @@ class ThingsboardValidator:
         admin_email: str,
         turbine_ids: list[str],
     ) -> bool:
-        """Run single tenant validation checks."""
+        """
+        Run single tenant validation checks covering tenant, admin user, and devices.
+
+        Args:
+            tenant_name (str): Tenant name.
+            admin_email (str): Tenant admin email.
+            turbine_ids (list[str]): List of turbine device identifiers.
+
+        Returns:
+            bool: True if all validation assertions pass, False otherwise.
+
+        """
         self.checks_passed = 0
         self.checks_failed = 0
         checks = [
@@ -933,7 +1391,16 @@ class ThingsboardValidator:
         return all(checks)
 
     def validate_fleet(self, fleet: dict) -> bool:
-        """Validate multi-tenant provisioning across all customers in fleet.json."""
+        """
+        Validate multi-tenant provisioning across all customers in fleet configuration.
+
+        Args:
+            fleet (dict): Fleet dictionary containing customer topologies.
+
+        Returns:
+            bool: True if all customers and resources pass validation, False otherwise.
+
+        """
         self.checks_passed = 0
         self.checks_failed = 0
         all_ok = True

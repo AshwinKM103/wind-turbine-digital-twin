@@ -1,11 +1,21 @@
-#!/usr/bin/env python3
 """Read-only ThingsBoard copilot backend tools for telemetry, alarms, and sensor catalog.
 
-This module provides safe, read-only access to ThingsBoard telemetry data, alarm history,
+Provides safe, bounded, read-only access to ThingsBoard telemetry data, alarm history,
 and static subsystem sensor metadata. No write, RPC, or alarm-acknowledgment operations.
-All functions accept an already-authenticated ThingsboardClient and use its _request()
-method exclusively for HTTP calls.
+
+Exported Classes:
+    ToolError: Raised for any tool execution failure, validation error, or missing entity.
+
+Exported Functions:
+    get_latest_telemetry: Fetches current value and timestamp for requested keys.
+    get_telemetry_range: Queries aggregated timeseries datapoints across a time window.
+    list_alarms: Lists alarm events filtered by severity, status, and entity.
+    get_alarm_details: Retrieves granular metadata for a specific alarm.
+    get_sensor_catalog: Returns static mapping of turbine sensors and descriptions.
+    get_operating_limits: Queries ISO and engineering warning/critical thresholds.
+    build_chart_spec: Builds frontend chart rendering specification.
 """
+
 
 from __future__ import annotations
 

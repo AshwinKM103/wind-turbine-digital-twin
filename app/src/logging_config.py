@@ -1,14 +1,20 @@
 """
-logging_config.py - Shared structured (JSON) logging setup.
+Structured JSON logging infrastructure.
 
-Emits the same log shape as infrastructure.py's configure_logging: a
-rotating JSON file under LOG_DIR (default: /app/logs, i.e. ./app/logs on
-the host), file only.
+Provides consistent JSON-formatted log output with rotating file storage
+and process/request tracking for telemetry pipelines.
 
-Every record includes: timestamp, level, service, request_id, message.
-request_id defaults to a per-process id but callers can pass a per-message
-one via `extra={"request_id": ...}` to correlate a single telemetry
-message across producer -> Kafka -> consumer -> IoTDB.
+The implementation supports:
+
+    - Line-delimited JSON log output
+    - Timed rotating log files with automatic gzip compression
+    - Distributed tracing via request_id correlation
+
+Key classes / functions:
+
+    - JsonFormatter: Custom log formatter generating single-line JSON records.
+    - configure_logging: Set up service root logger with rotating file handler.
+
 """
 
 import json
@@ -22,13 +28,32 @@ _PROCESS_ID = str(uuid.uuid4())
 
 
 class JsonFormatter(logging.Formatter):
-    """Renders each log record as one JSON object per line."""
+    """
+    Render log records as single-line JSON strings with structured fields.
+
+    Extracts standard log record attributes, attaches process and request identifiers,
+    and formats exceptions into structured JSON payloads.
+
+    Args:
+        service (str): Name of the service emitting the log records.
+
+    """
 
     def __init__(self, service: str):
         super().__init__()
         self.service = service
 
     def format(self, record: logging.LogRecord) -> str:
+        """
+        Format the specified log record into a single JSON line.
+
+        Args:
+            record (logging.LogRecord): Log record containing event data.
+
+        Returns:
+            str: JSON-encoded string representation of the log entry.
+
+        """
         payload = {
             "timestamp": self.formatTime(record, "%Y-%m-%dT%H:%M:%S%z"),
             "level": record.levelname,
@@ -54,12 +79,22 @@ class JsonFormatter(logging.Formatter):
 
 def configure_logging(service: str, log_dir: str = None) -> logging.Logger:
     """
-    Configure the root logger for `service` with a rotating file handler:
-    daily rotation, 10 backups kept, gzip'd.
+    Configure the root logger for a service with daily-rotating JSON file output.
 
-    log_dir defaults to $LOG_DIR or ./logs relative to cwd, matching the
-    LOG_DIR env var wired up in docker-compose.yml (/app/logs inside each
-    container, bind-mounted from ./app/logs on the host).
+    Attaches a TimedRotatingFileHandler that rotates daily at midnight, keeps
+    10 days of backups, and compresses rotated files using gzip.
+
+    Args:
+        service (str): Identifying name of the service (e.g., 'kafka-consumer').
+        log_dir (str, optional): Directory path where logs will be written. Defaults to $LOG_DIR or './logs'.
+
+    Returns:
+        logging.Logger: Configured logger instance for the given service name.
+
+    Example:
+        >>> log = configure_logging("test-service", log_dir="/tmp/logs")
+        >>> log.info("Service initialized")
+
     """
     log_dir = log_dir or os.environ.get("LOG_DIR", "./logs")
     level_name = os.environ.get("LOG_LEVEL", "INFO").upper()
@@ -91,6 +126,7 @@ def configure_logging(service: str, log_dir: str = None) -> logging.Logger:
     root.addHandler(file_handler)
 
     return logging.getLogger(service)
+
 
 
 def _gzip_rotator(source: str, dest: str) -> None:

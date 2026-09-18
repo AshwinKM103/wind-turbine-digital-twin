@@ -1,4 +1,16 @@
-"""Rule chain provisioning subcommands for thingsboard_admin."""
+"""Rule chain provisioning subcommands for thingsboard_admin CLI.
+
+Provides commands to create and configure the ISO 10816-3 Dynamic Threshold Alarm
+Rule Chain in ThingsBoard, injecting TBEL scripts for vibration and pyrometer alarm
+filters, alarm creation, and clearing nodes.
+
+Exported Classes:
+    RuleChainCommand: Handler for rule chain deployment and device profile linking.
+
+Exported Functions:
+    register_rulechain_parser: Registers rule chain subcommands with argparse.
+    run_deploy_rulechain: Entry point alias for deploying the rule chain.
+"""
 
 from __future__ import annotations
 
@@ -15,7 +27,15 @@ RULE_CHAIN_NAME = "Turbine Dynamic Threshold Alarms"
 TURBINE_DEVICE_PROFILE_ID = os.environ.get("TB_DEVICE_PROFILE_ID", "f82b98c0-afee-11f1-b871-bd111a5de747")
 
 
-def _build_nodes_and_connections():
+def _build_nodes_and_connections() -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    """Constructs ThingsBoard rule engine nodes and connection definitions.
+
+    Builds message type filter nodes, TBEL JavaScript filter scripts for vibration
+    and temperature limits, and corresponding alarm creation/clear nodes.
+
+    Returns:
+        A tuple containing (nodes, connections) formatted for ThingsBoard rule chain metadata.
+    """
     vib_filter_tbel = (
         "var limit = (metadata.shared_threshold_XT_600_alarm != null) ? "
         "parseFloat(metadata.shared_threshold_XT_600_alarm) : 6.0;\n"
@@ -112,11 +132,22 @@ def _build_nodes_and_connections():
 
 
 class RuleChainCommand(BaseCommand):
-    """Rule chain provisioning command."""
+    """Rule chain provisioning and attachment command.
+
+    Automates the deployment of dynamic alarm processing chains and attaches
+    them as default chains to turbine device profiles in ThingsBoard.
+    """
 
     @classmethod
     def run_deploy_rulechain(cls, args: argparse.Namespace) -> int:
-        """Provisions ISO 10816-3 Dynamic Threshold Alarm Rule Chain."""
+        """Provisions ISO 10816-3 Dynamic Threshold Alarm Rule Chain.
+
+        Args:
+            args: Parsed command-line arguments containing server and credentials.
+
+        Returns:
+            Zero on successful rule chain deployment, non-zero on error.
+        """
         cfg, session, http = cls.init_session(args, require_password=True, is_sysadmin=False)
         if not http:
             return 1
@@ -174,6 +205,11 @@ run_deploy_rulechain = RuleChainCommand.run_deploy_rulechain
 
 
 def register_rulechain_parser(subparsers: argparse._SubParsersAction) -> None:
+    """Registers the rulechain subcommands and argument options.
+
+    Args:
+        subparsers: Subparser collection from argparse root command.
+    """
     parser = subparsers.add_parser("rulechain", help="Rule chain management")
     rc_subs = parser.add_subparsers(dest="rulechain_command", required=True)
 

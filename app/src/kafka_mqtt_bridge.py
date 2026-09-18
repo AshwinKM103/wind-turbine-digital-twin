@@ -1,5 +1,23 @@
 #!/usr/bin/env python3
-"""Bridge turbine telemetry from Kafka to ThingsBoard over MQTT."""
+"""
+Kafka to ThingsBoard MQTT telemetry bridge.
+
+Consumes wind turbine telemetry messages from Kafka topic and forwards them
+as telemetry attributes to ThingsBoard over MQTT with token-based authentication.
+
+The implementation supports:
+
+    - Resolution of device tokens from device registry mapping
+    - Batching and concurrent MQTT publishing
+    - Live health check HTTP server and metrics tracking
+
+Key classes / functions:
+
+    - DeviceRegistry: Maps customer and turbine identities to ThingsBoard tokens.
+    - BridgeMetrics: Tracks throughput, latency, and failure metrics.
+    - shaft_power_kw: Calculate rotor shaft power proxy in kilowatts.
+
+"""
 
 from __future__ import annotations
 
@@ -31,7 +49,6 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 
 
 def _build_log_handlers() -> tuple[list[logging.Handler], Optional[str]]:
-    """Build log handlers. Defer warnings until after basicConfig to avoid silent no-op."""
     handlers: list[logging.Handler] = [logging.StreamHandler(sys.stdout)]
     deferred_warning: Optional[str] = None
     log_dir = Path(os.getenv("LOG_DIR", "./logs"))
@@ -84,23 +101,58 @@ _RPM_TO_RAD_PER_S = 2.0 * math.pi / 60.0
 
 
 def shaft_power_kw(rpm: float, torque_knm: float) -> float:
-    """Shaft-power proxy in kW from rotor speed and gearbox torque."""
+    """
+    Calculate shaft-power proxy in kW from rotor speed and gearbox torque.
+
+    Args:
+        rpm (float): Rotor speed in revolutions per minute.
+        torque_knm (float): Gearbox torque in kilonewton-meters.
+
+    Returns:
+        float: Calculated mechanical shaft power proxy in kilowatts.
+
+    Example:
+        >>> p = shaft_power_kw(1800.0, 5.0)
+        >>> round(p, 1)
+        942.5
+
+    """
     return _RPM_TO_RAD_PER_S * rpm * torque_knm
+
 
 
 @dataclass
 class KafkaConfig:
-    """Configuration for Kafka connection and consumer topic."""
+    """
+    Configuration parameters for Kafka consumer topic and connection.
+
+    Attributes:
+        bootstrap_servers (str): Comma-separated list of Kafka broker host:port addresses.
+        topic (str): Kafka topic from which telemetry messages are consumed.
+        group_id (str): Consumer group identifier for offset tracking.
+        auto_offset_reset (str): Position to start reading if no committed offset is found.
+
+    """
+
     bootstrap_servers: str = field(default_factory=lambda: os.getenv("KAFKA_BOOTSTRAP_SERVERS_INTERNAL", "kafka:29092"))
     topic: str = field(default_factory=lambda: os.getenv("KAFKA_TOPIC", "turbine.telemetry.raw.v1"))
     group_id: str = field(default_factory=lambda: os.getenv("KAFKA_GROUP_ID", "kafka-mqtt-bridge-group"))
-    # Read latest offsets on restart to stream live telemetry
     auto_offset_reset: str = "latest"
 
 
 @dataclass
 class MQTTConfig:
-    """Configuration for ThingsBoard MQTT broker connection."""
+    """
+    Configuration parameters for ThingsBoard MQTT broker connection.
+
+    Attributes:
+        host (str): MQTT broker hostname or IP address.
+        port (int): MQTT broker port number.
+        keepalive (int): Keep-alive timeout interval in seconds.
+        clean_session (bool): Whether to establish a clean MQTT session.
+
+    """
+
     host: str = field(default_factory=lambda: os.getenv("MQTT_HOST", "thingsboard"))
     port: int = field(default_factory=lambda: int(os.getenv("MQTT_PORT", "1883")))
     keepalive: int = 60
@@ -109,7 +161,19 @@ class MQTTConfig:
 
 @dataclass
 class BridgeConfig:
-    """Composite configuration for Kafka-to-MQTT bridge runtime."""
+    """
+    Composite configuration runtime parameters for the Kafka-to-MQTT bridge.
+
+    Attributes:
+        kafka (KafkaConfig): Kafka consumer connection settings.
+        mqtt (MQTTConfig): ThingsBoard MQTT broker settings.
+        batch_size (int): Max number of messages polled per consumer batch.
+        batch_max_wait_s (float): Max wait time in seconds for batch polling.
+        health_check_port (int): Port for the HTTP health check server.
+        token_map_path (Path): Path to JSON file mapping device names to access tokens.
+
+    """
+
     kafka: KafkaConfig = field(default_factory=KafkaConfig)
     mqtt: MQTTConfig = field(default_factory=MQTTConfig)
     batch_size: int = field(default_factory=lambda: int(os.getenv("BATCH_SIZE", "50")))
@@ -120,10 +184,27 @@ class BridgeConfig:
     )
 
 
-# Metrics
 @dataclass
 class BridgeMetrics:
-    """Metrics tracker for telemetry throughput, errors, and delivery latency."""
+    """
+    Metrics tracker for telemetry throughput, errors, and delivery latency.
+
+    Attributes:
+        messages_consumed (int): Total count of Kafka messages read.
+        messages_published (int): Total count of telemetry messages published.
+        messages_delivered (int): Total count of PUBACK confirmations received.
+        kafka_errors (int): Total count of Kafka consumption failures.
+        mqtt_errors (int): Total count of MQTT publish errors.
+        unknown_devices (int): Total count of messages with unmapped devices.
+        mqtt_disconnects (int): Total count of broker disconnect events.
+        last_message_time (Optional[datetime]): Timestamp of last received message.
+        last_publish_time (Optional[datetime]): Timestamp of last published telemetry.
+        last_delivery_time (Optional[datetime]): Timestamp of last confirmed delivery.
+        bridge_start_time (datetime): Instance start time.
+        stall_threshold_s (float): Maximum seconds without delivery before unhealthy.
+
+    """
+
     messages_consumed: int = 0
     messages_published: int = 0
     messages_delivered: int = 0
@@ -135,19 +216,29 @@ class BridgeMetrics:
     last_publish_time: Optional[datetime] = None
     last_delivery_time: Optional[datetime] = None
     bridge_start_time: datetime = field(default_factory=datetime.now)
-
-    # Maximum elapsed seconds without successful delivery before marking unhealthy
     stall_threshold_s: float = 120.0
 
     def is_healthy(self) -> bool:
-        """Check if telemetry delivery is active within stall threshold."""
+        """
+        Check if telemetry delivery is active within stall threshold.
+
+        Returns:
+            bool: True if last delivery occurred within stall_threshold_s or initial grace period.
+
+        """
         now = datetime.now()
         if self.last_delivery_time is not None:
             return (now - self.last_delivery_time).total_seconds() < self.stall_threshold_s
         return (now - self.bridge_start_time).total_seconds() < 300
 
     def to_dict(self) -> dict:
-        """Serialize current metrics snapshot to dictionary."""
+        """
+        Serialize current metrics snapshot to dictionary.
+
+        Returns:
+            dict: Key-value dictionary of bridge health and performance metrics.
+
+        """
         return {
             "messages_consumed": self.messages_consumed,
             "messages_published": self.messages_published,
@@ -178,10 +269,19 @@ class BridgeMetrics:
         }
 
 
-# Device registry
 @dataclass(frozen=True)
 class DeviceBinding:
-    """Everything needed to publish one turbine's telemetry to ThingsBoard."""
+    """
+    Everything needed to publish one turbine's telemetry to ThingsBoard.
+
+    Attributes:
+        customer_id (str): Customer identifier.
+        site_id (str): Site location identifier.
+        turbine_id (str): Turbine identifier.
+        device_name (str): ThingsBoard registered device name.
+        token (str): Device MQTT access token.
+
+    """
 
     customer_id: str
     site_id: str
@@ -191,22 +291,56 @@ class DeviceBinding:
 
 
 class DeviceRegistry:
-    """Resolves (customer_id, turbine_id) from Kafka to ThingsBoard device credentials."""
+    """
+    Resolves (customer_id, turbine_id) from Kafka to ThingsBoard device credentials.
 
-    def __init__(self, bindings: dict[tuple[str, str], DeviceBinding]):
-        """Initialize registry with mapping from (customer, turbine) to device binding."""
+    Loads and indexes device tokens from JSON file exported during provisioning.
+
+    """
+
+    def __init__(self, bindings: dict[tuple[str, str], DeviceBinding]) -> None:
+        """
+        Initialize registry with mapping from (customer, turbine) to device binding.
+
+        Args:
+            bindings (dict[tuple[str, str], DeviceBinding]): Mapping from (customer_id, turbine_id) to binding.
+
+        """
         self._bindings = bindings
 
     def __len__(self) -> int:
         return len(self._bindings)
 
     def resolve(self, customer_id: str, turbine_id: str) -> Optional[DeviceBinding]:
-        """Lookup device binding by customer ID and turbine ID."""
+        """
+        Lookup device binding by customer ID and turbine ID.
+
+        Args:
+            customer_id (str): Customer identifier.
+            turbine_id (str): Turbine identifier.
+
+        Returns:
+            Optional[DeviceBinding]: Matching DeviceBinding or None if unmapped.
+
+        """
         return self._bindings.get((customer_id, turbine_id))
 
     @classmethod
     def load(cls, token_map_path: Path | str) -> "DeviceRegistry":
-        """Build device registry from exported token map."""
+        """
+        Build device registry from exported token map.
+
+        Args:
+            token_map_path (Path | str): Path to device tokens JSON file.
+
+        Returns:
+            DeviceRegistry: Loaded and indexed device registry instance.
+
+        Raises:
+            FileNotFoundError: If token map file does not exist.
+            ValueError: If file is invalid JSON or yields zero bindings.
+
+        """
         path = Path(token_map_path)
         try:
             document = json.loads(path.read_text(encoding="utf-8"))
@@ -269,10 +403,22 @@ TELEMETRY_TOPIC = "v1/devices/me/telemetry"
 
 
 class ThingsboardDevicePublisher:
-    """Manages authenticated MQTT sessions for ThingsBoard device telemetry publishing."""
+    """
+    Manages authenticated MQTT sessions for ThingsBoard device telemetry publishing.
 
-    def __init__(self, config: MQTTConfig, metrics: BridgeMetrics):
-        """Initialize publisher with MQTT connection config and metric counters."""
+    Maintains per-device persistent connections using device credentials and tokens.
+
+    """
+
+    def __init__(self, config: MQTTConfig, metrics: BridgeMetrics) -> None:
+        """
+        Initialize publisher with MQTT connection config and metric counters.
+
+        Args:
+            config (MQTTConfig): ThingsBoard MQTT broker configuration.
+            metrics (BridgeMetrics): Metrics collector instance.
+
+        """
         self.config = config
         self.metrics = metrics
         self._clients: dict[str, mqtt.Client] = {}
@@ -280,17 +426,23 @@ class ThingsboardDevicePublisher:
         self._last_offline_warn: dict[str, float] = {}
 
     def _connect_device(self, binding: DeviceBinding) -> Optional[mqtt.Client]:
-        """Establish and configure authenticated MQTT client connection for a device."""
+        """
+        Establish and configure authenticated MQTT client connection for a device.
+
+        Args:
+            binding (DeviceBinding): Device binding with target credentials.
+
+        Returns:
+            Optional[mqtt.Client]: Connected MQTT client instance, or None on failure.
+
+        """
         device = binding.device_name
         client = mqtt.Client(
             client_id=f"bridge-{device}",
             callback_api_version=mqtt.CallbackAPIVersion.VERSION2,
         )
-        # Set device access token credentials
         client.username_pw_set(binding.token)
-        # Reconnect with exponential backoff
         client.reconnect_delay_set(min_delay=1, max_delay=60)
-        # Bound message queue to prevent memory growth during broker outages
         client.max_queued_messages_set(1000)
 
         connect_codes: list[int] = []
@@ -303,7 +455,6 @@ class ThingsboardDevicePublisher:
         def on_disconnect(
             client, userdata, flags, reason_code, properties=None
         ):
-            # Track disconnection events for health monitoring
             self.metrics.mqtt_disconnects += 1
             logger.warning(
                 "MQTT session for %s dropped by broker (%s); reconnecting",
@@ -312,7 +463,6 @@ class ThingsboardDevicePublisher:
             )
 
         def on_publish(client, userdata, mid, reason_code=None, properties=None):
-            # Record PUBACK delivery confirmation
             self.metrics.messages_delivered += 1
             self.metrics.last_delivery_time = datetime.now()
 
@@ -347,7 +497,16 @@ class ThingsboardDevicePublisher:
         return client
 
     def _client_for(self, binding: DeviceBinding) -> Optional[mqtt.Client]:
-        """Retrieve cached active MQTT client or create a new session."""
+        """
+        Retrieve cached active MQTT client or create a new session.
+
+        Args:
+            binding (DeviceBinding): Target device binding.
+
+        Returns:
+            Optional[mqtt.Client]: Cached or newly established client instance.
+
+        """
         with self._lock:
             client = self._clients.get(binding.device_name)
             if client is not None:
@@ -360,7 +519,18 @@ class ThingsboardDevicePublisher:
     def publish_telemetry(
         self, binding: DeviceBinding, ts_ms: int, values: dict
     ) -> bool:
-        """Publish one timestamped reading for one device."""
+        """
+        Publish one timestamped reading for one device.
+
+        Args:
+            binding (DeviceBinding): Device metadata and credentials.
+            ts_ms (int): Event timestamp in milliseconds.
+            values (dict): Dictionary of sensor measurement values and status.
+
+        Returns:
+            bool: True if publish request was accepted by MQTT client, False otherwise.
+
+        """
         client = self._client_for(binding)
         if client is None:
             now = time.time()
@@ -386,7 +556,10 @@ class ThingsboardDevicePublisher:
         return True
 
     def disconnect_all(self) -> None:
-        """Stop client loops and disconnect all active MQTT sessions."""
+        """
+        Stop client loops and disconnect all active MQTT sessions cleanly.
+
+        """
         with self._lock:
             clients = list(self._clients.values())
             self._clients.clear()
@@ -400,18 +573,42 @@ class ThingsboardDevicePublisher:
     close = disconnect_all
 
 
-# Kafka consumer
 class TurbineTelemetryConsumer:
-    """Consumes serialized turbine telemetry batches from Kafka."""
+    """
+    Consumes serialized turbine telemetry batches from Kafka.
 
-    def __init__(self, config: KafkaConfig, metrics: BridgeMetrics):
-        """Initialize Kafka consumer configuration and metrics reference."""
+    Attributes:
+        config (KafkaConfig): Kafka consumer connection settings.
+        metrics (BridgeMetrics): Metrics tracker instance.
+        consumer (Optional[KafkaConsumer]): Active kafka-python consumer instance.
+
+    """
+
+    def __init__(self, config: KafkaConfig, metrics: BridgeMetrics) -> None:
+        """
+        Initialize Kafka consumer configuration and metrics reference.
+
+        Args:
+            config (KafkaConfig): Kafka connection and topic configuration.
+            metrics (BridgeMetrics): Metrics collector instance.
+
+        """
         self.config = config
         self.metrics = metrics
         self.consumer = None
 
     def connect(self, retries: int = 5, retry_delay_s: float = 2.0) -> bool:
-        """Establish connection to Kafka broker with retry backoff."""
+        """
+        Establish connection to Kafka broker with retry backoff.
+
+        Args:
+            retries (int, optional): Number of connection attempts. Defaults to 5.
+            retry_delay_s (float, optional): Seconds between attempts. Defaults to 2.0.
+
+        Returns:
+            bool: True if connected successfully, False otherwise.
+
+        """
         for attempt in range(retries):
             try:
                 self.consumer = KafkaConsumer(
@@ -441,7 +638,17 @@ class TurbineTelemetryConsumer:
         return False
 
     def consume_batch(self, max_messages: int = 50, timeout_ms: int = 5000) -> list:
-        """Poll Kafka for a batch of incoming messages up to max_messages."""
+        """
+        Poll Kafka for a batch of incoming messages up to max_messages.
+
+        Args:
+            max_messages (int, optional): Maximum messages to pull. Defaults to 50.
+            timeout_ms (int, optional): Timeout in milliseconds. Defaults to 5000.
+
+        Returns:
+            list: List of consumed message records.
+
+        """
         messages = []
         try:
             poll_result = self.consumer.poll(
@@ -455,14 +662,25 @@ class TurbineTelemetryConsumer:
         return messages
 
 
-# Bridge
-
-
 def build_telemetry_values(metrics: dict, operating_state: str) -> dict:
-    """Assemble the ThingsBoard `values` object for one Kafka reading.
+    """
+    Assemble the ThingsBoard values payload dictionary for one telemetry record.
 
-    Includes all raw telemetry channels from `metrics`, plus derived keys,
-    shaft power proxy, and operating state.
+    Includes raw sensor metrics, derived metrics aliases, mechanical shaft power
+    proxy, and operating state.
+
+    Args:
+        metrics (dict): Raw sensor measurement dictionary.
+        operating_state (str): Current operating state identifier string.
+
+    Returns:
+        dict: ThingsBoard formatted key-value attribute dictionary.
+
+    Example:
+        >>> res = build_telemetry_values({"TURBINE_SPEED_RPM": 1800.0, "GB_TRQ": 5.0}, "ONLINE")
+        >>> res["state"]
+        'ONLINE'
+
     """
     values: dict = dict(metrics)
 
@@ -481,9 +699,31 @@ def build_telemetry_values(metrics: dict, operating_state: str) -> dict:
 
 
 class KafkaToMQTTBridge:
-    """Bridges telemetry from Kafka topics to ThingsBoard MQTT endpoints."""
+    """
+    Bridges telemetry from Kafka topics to ThingsBoard MQTT endpoints.
 
-    def __init__(self, config: BridgeConfig, registry: Optional[DeviceRegistry] = None):
+    Orchestrates consuming raw events from Kafka, looking up ThingsBoard device
+    credentials, and publishing formatted telemetry batches.
+
+    Attributes:
+        config (BridgeConfig): Bridge configuration options.
+        metrics (BridgeMetrics): Metrics collector instance.
+        registry (DeviceRegistry): Registry resolving device tokens.
+        kafka_consumer (TurbineTelemetryConsumer): Telemetry consumer instance.
+        publisher (ThingsboardDevicePublisher): MQTT device publisher instance.
+        running (bool): Running flag for message processing loop.
+
+    """
+
+    def __init__(self, config: BridgeConfig, registry: Optional[DeviceRegistry] = None) -> None:
+        """
+        Initialize bridge with configuration and optional pre-loaded device registry.
+
+        Args:
+            config (BridgeConfig): Composite configuration settings.
+            registry (Optional[DeviceRegistry], optional): Preloaded registry instance. Defaults to None.
+
+        """
         self.config = config
         self.metrics = BridgeMetrics()
         self.registry = registry or DeviceRegistry.load(config.token_map_path)
@@ -493,7 +733,13 @@ class KafkaToMQTTBridge:
         self._warned_unknown: set[tuple[str, str]] = set()
 
     def start(self) -> bool:
-        """Initialize Kafka consumer and mark bridge as running."""
+        """
+        Initialize Kafka consumer and mark bridge as running.
+
+        Returns:
+            bool: True if connection succeeded and bridge started, False otherwise.
+
+        """
         logger.info("Initializing Kafka->ThingsBoard MQTT bridge...")
         if not self.kafka_consumer.connect():
             logger.error("Failed to connect to Kafka")
@@ -506,7 +752,12 @@ class KafkaToMQTTBridge:
         return True
 
     def run(self) -> None:
-        """Process message batches continuously and forward to ThingsBoard."""
+        """
+        Process message batches continuously and forward to ThingsBoard.
+
+        Polls Kafka batches, parses payloads, publishes via MQTT, and updates metrics.
+
+        """
         logger.info("Starting message loop...")
 
         while self.running:
@@ -539,7 +790,16 @@ class KafkaToMQTTBridge:
                 time.sleep(1)
 
     def _publish_message(self, telemetry: dict) -> bool:
-        """Publish one Kafka telemetry record as ThingsBoard device telemetry."""
+        """
+        Publish one Kafka telemetry record as ThingsBoard device telemetry.
+
+        Args:
+            telemetry (dict): Incoming telemetry payload dictionary.
+
+        Returns:
+            bool: True if successfully published, False if rejected or dropped.
+
+        """
         try:
             customer_id = telemetry.get("customer_id")
             turbine_id = telemetry.get("turbine_id")
@@ -578,7 +838,10 @@ class KafkaToMQTTBridge:
             return False
 
     def stop(self) -> None:
-        """Stop message consumer and close active MQTT sessions."""
+        """
+        Stop message consumer and close active MQTT sessions cleanly.
+
+        """
         logger.info("Stopping bridge...")
         self.running = False
         if self.kafka_consumer.consumer:
@@ -587,9 +850,15 @@ class KafkaToMQTTBridge:
         logger.info("Bridge stopped")
 
 
-# Health check server
 def start_health_check_server(port: int, metrics: BridgeMetrics) -> None:
-    """Start background HTTP health check and metrics server."""
+    """
+    Start background HTTP health check and metrics server.
+
+    Args:
+        port (int): Listening HTTP port for health and metrics endpoints.
+        metrics (BridgeMetrics): Metrics collector to report.
+
+    """
     from http.server import BaseHTTPRequestHandler, HTTPServer
 
     class HealthCheckHandler(BaseHTTPRequestHandler):
@@ -618,9 +887,14 @@ def start_health_check_server(port: int, metrics: BridgeMetrics) -> None:
     logger.info("Health check server started on port %d", port)
 
 
-# Main
 def main() -> int:
-    """Initialize configuration, health server, and bridge processing loop."""
+    """
+    Initialize configuration, health server, and bridge processing loop.
+
+    Returns:
+        int: Process exit code (0 for success, 1 for error).
+
+    """
     config = BridgeConfig()
 
     try:

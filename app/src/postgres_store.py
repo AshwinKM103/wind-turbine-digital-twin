@@ -1,4 +1,21 @@
-"""Durable, non-blocking asynchronous writer for alerts and turbine state history."""
+"""
+Durable, asynchronous PostgreSQL store for alerts and turbine state history.
+
+Provides background-threaded, best-effort database persistence for threshold
+breaches, confirmed alerts, and operational state transitions.
+
+The implementation supports:
+
+    - Non-blocking internal work queues with bounded capacity
+    - Resilient reconnection with exponential backoff
+    - Automatic retention pruning of aged records
+
+Key classes / functions:
+
+    - StoreMetrics: Counters tracking queued, written, and dropped work.
+    - PostgresStore: Asynchronous background worker persisting telemetry events.
+
+"""
 
 from __future__ import annotations
 
@@ -16,11 +33,9 @@ from turbine_state import StateTransition
 
 log = configure_logging("postgres-store")
 
-# Statements executed atomically in a single transaction
 Statement = tuple[str, tuple[Any, ...]]
 WorkUnit = list[Statement]
 
-# Sentinel object to signal shutdown without confusing idle queue timeouts
 _SHUTDOWN = object()
 
 _INSERT_ALERT = """
@@ -32,7 +47,6 @@ _INSERT_ALERT = """
     ON CONFLICT (alert_id) DO NOTHING
 """
 
-# Associate pre-alert breach observations with newly confirmed alert
 _LINK_BREACHES = """
     UPDATE alert_breaches
        SET alert_id = %s
@@ -51,7 +65,6 @@ _INSERT_BREACH = """
     ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
 """
 
-# Idempotently close the active state row for a turbine
 _CLOSE_STATE = """
     UPDATE turbine_states
        SET end_time = %s
@@ -61,7 +74,6 @@ _CLOSE_STATE = """
        AND start_time <= %s
 """
 
-# Open new state row guarded by partial unique index on active states
 _OPEN_STATE = """
     INSERT INTO turbine_states (
         customer_id, turbine_id, device_path, state, start_time
@@ -74,7 +86,17 @@ _PRUNE = "SELECT * FROM prune_retention(%s)"
 
 @dataclass
 class StoreMetrics:
-    """Counters for the health endpoint and the shutdown summary."""
+    """
+    Performance and operational metrics for PostgresStore.
+
+    Args:
+        enqueued (int): Total work items enqueued. Defaults to 0.
+        written (int): Total work items written to database. Defaults to 0.
+        dropped (int): Work items dropped due to queue saturation. Defaults to 0.
+        failed (int): Database write transactions that failed. Defaults to 0.
+        reconnects (int): Successful database reconnection attempts. Defaults to 0.
+
+    """
 
     enqueued: int = 0
     written: int = 0
@@ -83,7 +105,13 @@ class StoreMetrics:
     reconnects: int = 0
 
     def as_dict(self) -> dict[str, int]:
-        """Return metrics counters as a dictionary."""
+        """
+        Return metrics counters as a dictionary.
+
+        Returns:
+            dict[str, int]: Key-value mapping of current metric counters.
+
+        """
         return {
             "enqueued": self.enqueued,
             "written": self.written,
@@ -94,12 +122,24 @@ class StoreMetrics:
 
 
 def _to_utc(timestamp_ms: int) -> datetime:
-    """Convert millisecond timestamp to timezone-aware UTC datetime."""
     return datetime.fromtimestamp(timestamp_ms / 1000.0, tz=timezone.utc)
 
 
 class PostgresStore:
-    """Background-threaded, best-effort writer. Never raises to its caller."""
+    """
+    Background-threaded, best-effort writer for relational event history.
+
+    Buffers database writes in an internal queue and flushes them asynchronously,
+    preventing PostgreSQL latency or transient downtime from stalling the telemetry pipeline.
+
+    Args:
+        dsn (str): PostgreSQL connection DSN URI string.
+        retention_days (int, optional): Days of historical data to retain. Defaults to 30.
+        queue_size (int, optional): In-memory buffer queue limit. Defaults to 10000.
+        prune_interval_s (float, optional): Seconds between retention pruning runs. Defaults to 3600.0.
+        connect_backoff_max_s (float, optional): Maximum backoff seconds between retries. Defaults to 30.0.
+
+    """
 
     def __init__(
         self,
@@ -110,7 +150,6 @@ class PostgresStore:
         prune_interval_s: float = 3600.0,
         connect_backoff_max_s: float = 30.0,
     ) -> None:
-        """Initialize PostgreSQL background worker thread and ingestion queue."""
         self._dsn = dsn
         self._retention_days = retention_days
         self._prune_interval_s = prune_interval_s
@@ -122,10 +161,13 @@ class PostgresStore:
         self._connected = threading.Event()
         self.metrics = StoreMetrics()
 
-    # -- lifecycle ---------------------------------------------------------
-
     def start(self) -> None:
-        """Start the background writer thread."""
+        """
+        Start the background worker thread.
+
+        Launches the background daemon thread if not already running.
+
+        """
         if self._thread is not None:
             return
         self._thread = threading.Thread(
@@ -135,7 +177,13 @@ class PostgresStore:
         log.info("Postgres writer started", extra={"retention_days": self._retention_days})
 
     def close(self, timeout_s: float = 10.0) -> None:
-        """Drain queued work and shut down background thread within timeout."""
+        """
+        Drain queued work and shut down the background thread.
+
+        Args:
+            timeout_s (float, optional): Maximum seconds to wait for worker to terminate. Defaults to 10.0.
+
+        """
         if self._thread is None:
             return
         self._stopping.set()
@@ -153,8 +201,15 @@ class PostgresStore:
 
     @property
     def is_connected(self) -> bool:
-        """Whether the background worker currently has an active connection."""
+        """
+        Return whether the background worker currently has an active connection.
+
+        Returns:
+            bool: True if connected to PostgreSQL, False otherwise.
+
+        """
         return self._connected.is_set()
+
 
     # -- public write API --------------------------------------------------
 
@@ -165,11 +220,18 @@ class PostgresStore:
         start_time_ms: int,
         confirmation_window_start_ms: int,
     ) -> None:
-        """Persist confirmed alert and link prior breach records."""
+        """
+        Persist a confirmed alert and link prior breach records.
+
+        Args:
+            alert (Any): The confirmed Alert instance.
+            start_time_ms (int): Millisecond epoch timestamp when anomaly condition started.
+            confirmation_window_start_ms (int): Start time of confirmation window for linking breaches.
+
+        """
         logged_time = datetime.now(timezone.utc)
         start_time = _to_utc(start_time_ms)
         event_time = _to_utc(alert.timestamp_ms)
-        # Clamp to prevent clock skew from violating CHECK constraint
         start_time = min(start_time, logged_time)
 
         threshold_info = (
@@ -222,7 +284,21 @@ class PostgresStore:
         confirmation_no: int,
         event_time_ms: int,
     ) -> None:
-        """Persist one threshold-breach observation, confirmed or not."""
+        """
+        Persist an individual threshold breach observation.
+
+        Args:
+            customer_id (str): Identifier of customer.
+            turbine_id (str): Identifier of turbine.
+            sensor (str): Telemetry sensor measurement name.
+            detection_type (str): Type of anomaly detection triggered.
+            severity (str): Severity classification ('info', 'warning', 'critical').
+            value (float): Observed telemetry value.
+            turbine_state (str | None): Turbine operational state at breach time.
+            confirmation_no (int): Progressive confirmation sequence counter.
+            event_time_ms (int): Millisecond epoch timestamp of reading.
+
+        """
         work: WorkUnit = [
             (
                 _INSERT_BREACH,
@@ -243,7 +319,13 @@ class PostgresStore:
         self._enqueue(work, "breach")
 
     def record_state_transition(self, transition: StateTransition) -> None:
-        """Record state transition by closing current state and opening the new state."""
+        """
+        Record a state transition by closing prior state and opening the new state.
+
+        Args:
+            transition (StateTransition): Confirmed state transition event.
+
+        """
         changed_at = _to_utc(transition.changed_at_ms)
         work: WorkUnit = [
             (
@@ -262,6 +344,7 @@ class PostgresStore:
             ),
         ]
         self._enqueue(work, "state_transition")
+
 
     # -- internals ---------------------------------------------------------
 

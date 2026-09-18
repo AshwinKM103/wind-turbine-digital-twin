@@ -1,4 +1,22 @@
-"""Physical profiles and dynamic tuning for 61 turbine sensor channels."""
+"""
+Physical profiles and dynamic tuning for 61 turbine sensor channels.
+
+Provides physics-based static descriptions, noise parameters, operational limits,
+and baseline calibration constants for 61 wind turbine telemetry channels.
+
+The implementation supports:
+
+    - Typed categorization across pressure, flow, temperature, vibration, operational
+    - Expected value calculation as a function of turbine load factor
+    - Static profile catalog indexed by measurement channel name
+
+Key classes / functions:
+
+    - SensorCategory: Enumeration of physical sensor domains.
+    - SensorProfile: Physics metadata and limits for an individual channel.
+    - CategoryTuning: Dynamic response and noise profiles per category.
+
+"""
 
 from __future__ import annotations
 
@@ -18,7 +36,25 @@ class SensorCategory(StrEnum):
 
 @dataclass(frozen=True, slots=True)
 class SensorProfile:
-    """Static description of one sensor channel."""
+    """
+    Static physics description and operating boundaries of one sensor channel.
+
+    Args:
+        measurement (str): Telemetry key identifier (e.g., 'PT_109A').
+        display_name (str): Human-readable sensor description.
+        unit (str): Engineering unit string (e.g., 'bar', 'degC').
+        grafana_unit (str): Grafana display unit format string.
+        category (SensorCategory): Physical category of the sensor.
+        idle_value (float): Expected sensor reading when turbine is idle.
+        load_value (float): Expected sensor reading at 100% nominal load.
+        noise_std (float): Standard deviation of Gaussian noise.
+        drift_per_hour (float): Maximum expected drift per hour.
+        min_value (float): Absolute lower clamp bound.
+        max_value (float): Absolute upper clamp bound.
+        response_time_s (float): 63% step-response time constant in seconds.
+        noise_correlation_s (float): Noise temporal autocorrelation time in seconds.
+
+    """
 
     measurement: str
     display_name: str
@@ -31,13 +67,28 @@ class SensorProfile:
     drift_per_hour: float
     min_value: float
     max_value: float
-    # Time constants in seconds governing step response and noise correlation
     response_time_s: float
     noise_correlation_s: float
 
     def value_at(self, load_factor: float) -> float:
-        """Noise-free expected value at the given load factor in [0, 1]."""
+        """
+        Calculate the noise-free expected value at a given load factor.
+
+        Args:
+            load_factor (float): Relative load factor in range [0.0, 1.0].
+
+        Returns:
+            float: Expected linear baseline reading.
+
+        Example:
+            >>> profile = SENSOR_PROFILES[0]
+            >>> val = profile.value_at(0.5)
+            >>> isinstance(val, float)
+            True
+
+        """
         return self.idle_value + (self.load_value - self.idle_value) * load_factor
+
 
 
 # Calibration spread applied to full-load values across turbine units

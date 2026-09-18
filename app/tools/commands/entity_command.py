@@ -1,4 +1,21 @@
-"""Entity provisioning subcommands for thingsboard_admin."""
+"""
+Entity provisioning subcommands for ThingsBoard administration.
+
+Provides automated, idempotent provisioning routines for tenant accounts, administrator users,
+turbine MQTT devices, and hierarchical subsystem assets linked with entity relations.
+
+The implementation supports:
+
+    - Recursive asset hierarchy creation and 'Contains' / 'Monitors' relations setup
+    - Account bootstrapping with activation token management
+    - Provisioning results export to secured JSON snapshots
+
+Key classes / functions:
+
+    - EntityCommand: CLI command handler executing entity provisioning workflows.
+    - register_entity_parser: Subparser registration entry point.
+
+"""
 
 from __future__ import annotations
 
@@ -20,6 +37,19 @@ logger = logging.getLogger("tb_admin.entity")
 def _get_or_create_asset(
     client: ThingsboardClient, name: str, asset_type: str, asset_id: Optional[str] = None
 ) -> Optional[str]:
+    """
+    Find existing asset by name or create a new asset entity.
+
+    Args:
+        client (ThingsboardClient): Authenticated Thingsboard client.
+        name (str): Asset name.
+        asset_type (str): Asset type string.
+        asset_id (Optional[str], optional): Desired explicit UUID. Defaults to None.
+
+    Returns:
+        Optional[str]: Asset entity UUID string, or None on failure.
+
+    """
     resp = client._request("GET", f"/api/tenant/assets?pageSize=100&page=0&type={asset_type}")
     if resp.status_code == 200:
         data = resp.json().get("data", [])
@@ -58,6 +88,21 @@ def _create_relation(
     to_type: str,
     relation_type: str = "Contains",
 ) -> bool:
+    """
+    Create an entity relation between two ThingsBoard resources.
+
+    Args:
+        client (ThingsboardClient): Authenticated Thingsboard client.
+        from_id (str): Origin entity UUID.
+        from_type (str): Origin entity type (e.g. 'ASSET', 'DEVICE').
+        to_id (str): Target entity UUID.
+        to_type (str): Target entity type (e.g. 'ASSET', 'DEVICE').
+        relation_type (str, optional): Relation type string. Defaults to "Contains".
+
+    Returns:
+        bool: True if relation created successfully, False otherwise.
+
+    """
     payload = {
         "from": {"id": from_id, "entityType": from_type},
         "to": {"id": to_id, "entityType": to_type},
@@ -69,11 +114,25 @@ def _create_relation(
 
 
 class EntityCommand(BaseCommand):
-    """Entity provisioning command."""
+    """
+    Entity provisioning command.
+
+    Encapsulates CLI workflows to create and link tenants, users, devices, and assets.
+
+    """
 
     @classmethod
     def run_provision_entities(cls, args: argparse.Namespace) -> int:
-        """Idempotently provisions Tenant, Tenant Admin, Device, and 14 Assets."""
+        """
+        Idempotently provision Tenant, Tenant Admin, Device, and subsystem Assets.
+
+        Args:
+            args (argparse.Namespace): Parsed CLI command options with site and turbine flags.
+
+        Returns:
+            int: 0 on success, 1 on failure.
+
+        """
         cfg, _ = cls.init_tb_client(args)
         if not cfg.sysadmin_password:
             logger.error("TB_SYSADMIN_PASSWORD is required.")
@@ -197,6 +256,13 @@ run_provision_entities = EntityCommand.run_provision_entities
 
 
 def register_entity_parser(subparsers: argparse._SubParsersAction) -> None:
+    """
+    Register entity provisioning subcommands with main CLI parser.
+
+    Args:
+        subparsers (argparse._SubParsersAction): Subparser container to populate.
+
+    """
     parser = subparsers.add_parser("entity", help="Entity provisioning management")
     entity_subs = parser.add_subparsers(dest="entity_command", required=True)
 

@@ -1,4 +1,13 @@
-"""ECharts and chart widget builders for ThingsBoard dashboards."""
+"""ECharts and chart widget builders for ThingsBoard dashboards.
+
+Provides helper constructors to generate schema-compliant ThingsBoard chart definitions,
+including multi-axis timeseries line charts and 2D shaft orbit plots.
+
+Exported Functions:
+    make_axis: Generates an ECharts Y-axis specification dictionary.
+    make_orbit: Generates an orbit plot widget descriptor.
+    build_chart_widget: Assembles a complete multi-series time_series_chart widget definition.
+"""
 
 from __future__ import annotations
 
@@ -17,7 +26,22 @@ def make_axis(
     max_val: Optional[float] = None,
     split_lines: bool = False,
 ) -> dict[str, Any]:
-    """Build a complete, schema-compliant ECharts Y-Axis definition for system.time_series_chart."""
+    """Builds a schema-compliant ECharts Y-Axis definition for system.time_series_chart.
+
+    Args:
+        axis_id: Unique string identifier for the axis (e.g. 'rpm', 'mw').
+        label: Axis title label displayed along the axis line.
+        units: Engineering units string appended to axis values (e.g. 'RPM', '°C').
+        decimals: Decimal precision formatting for axis tick numbers.
+        order: Visual placement order of the axis.
+        position: Axis placement side ('left' or 'right').
+        min_val: Optional fixed minimum axis boundary.
+        max_val: Optional fixed maximum axis boundary.
+        split_lines: Whether to render horizontal grid split lines.
+
+    Returns:
+        Dictionary conforming to ThingsBoard ECharts Y-axis schema.
+    """
     axis: dict[str, Any] = {
         "id": axis_id,
         "label": label,
@@ -68,7 +92,20 @@ def make_orbit(
     size_x: int = 12,
     size_y: int = 11,
 ) -> dict[str, Any]:
-    """Build a orbit plot widget definition."""
+    """Builds an orbit plot widget definition for 2D shaft orbit visualization.
+
+    Args:
+        title: Main title of the orbit widget.
+        x_key: Telemetry timeseries key for X displacement (e.g. 'XT_600').
+        y_key: Telemetry timeseries key for Y displacement (e.g. 'YT_600').
+        alias_device_id: Entity alias identifier linking the datasource to turbine device.
+        subtitle: Optional subtitle string.
+        size_x: Grid column span on dashboard layout.
+        size_y: Grid row span on dashboard layout.
+
+    Returns:
+        ThingsBoard widget dictionary for tenant.turbine_orbit_plot.
+    """
     return {
         "typeFullFqn": "tenant.turbine_orbit_plot",
         "type": "latest",
@@ -103,7 +140,20 @@ def build_chart_widget(
     size_x: int = 12,
     size_y: int = 11,
 ) -> dict[str, Any]:
-    """Build a time_series_chart widget definition with multiple series and yAxes."""
+    """Builds a time_series_chart widget definition with multiple series and yAxes.
+
+    Args:
+        title: Title of the chart widget.
+        keys_and_axes: List of 6-tuples: (telemetry_name, label, color_hex, y_axis_id, units, decimals).
+        y_axes: Dictionary mapping yAxisId strings to make_axis definitions.
+        alias_device_id: Entity alias identifier for telemetry datasource.
+        base_default_config: Optional base configuration dictionary to merge into.
+        size_x: Grid column span on dashboard.
+        size_y: Grid row span on dashboard.
+
+    Returns:
+        ThingsBoard widget definition for system.time_series_chart.
+    """
     chart_cfg: dict[str, Any] = json.loads(json.dumps(base_default_config or {}))
     chart_cfg["showTitle"] = True
     chart_cfg["title"] = title
@@ -223,3 +273,4 @@ def build_chart_widget(
         "sizeY": size_y,
         "config": chart_cfg,
     }
+

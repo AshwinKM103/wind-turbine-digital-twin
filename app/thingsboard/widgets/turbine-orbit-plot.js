@@ -1,3 +1,10 @@
+/**
+ * @fileoverview ThingsBoard custom widget controller for 2D shaft orbit plots.
+ * Renders polar XY displacement trajectories from orthogonal proximity probes.
+ *
+ * @module turbine-orbit-plot
+ */
+
 self.onInit = function () {
   var canvasElem = document.getElementById('orb-canvas');
   self.ctx.container = self.ctx.$container ? self.ctx.$container[0] : (self.ctx.container || (canvasElem && canvasElem.closest ? canvasElem.closest('.orbit-card') : null));

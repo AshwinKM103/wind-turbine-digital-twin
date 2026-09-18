@@ -1,4 +1,11 @@
-"""Tool execution layer for copilot backend."""
+"""Tool execution layer for copilot backend.
+
+Provides a unified, secure dispatch interface for executing read-only diagnostic tools,
+validating arguments, binding conversation entity context, and isolating runtime errors.
+
+Exported Classes:
+    ToolExecutor: Central dispatcher for ThingsBoard and diagnostic copilot tools.
+"""
 
 from __future__ import annotations
 
@@ -43,9 +50,18 @@ logger = logging.getLogger(__name__)
 
 
 class ToolExecutor:
-    """Encapsulates tool execution with validation, error isolation, and structured logging."""
+    """Encapsulates tool execution with validation, error isolation, and structured logging.
 
-    def __init__(self, tb_client: object = None):
+    Attributes:
+        tb_client: Optional default ThingsBoard client instance.
+    """
+
+    def __init__(self, tb_client: object = None) -> None:
+        """Initializes the ToolExecutor with an optional default ThingsBoard client.
+
+        Args:
+            tb_client: Optional ThingsboardClient instance.
+        """
         self.tb_client = tb_client
 
     def execute_tool(
@@ -55,7 +71,19 @@ class ToolExecutor:
         tb_client: object = None,
         resolved_entity: Optional[Dict[str, Any]] = None,
     ) -> str:
+        """Executes a diagnostic tool by name with parsed JSON arguments.
+
+        Args:
+            tool_name: Identifier of the tool (e.g. 'get_latest_telemetry', 'render_chart').
+            tool_args_json: Serialized JSON argument payload string.
+            tb_client: Optional override ThingsBoard client instance.
+            resolved_entity: Resolved turbine entity context for this conversation.
+
+        Returns:
+            JSON-serialized string of the tool result, structured action, or error description.
+        """
         client = tb_client or self.tb_client
+
         try:
             args = json.loads(tool_args_json)
         except json.JSONDecodeError as e:

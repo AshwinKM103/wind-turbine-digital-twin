@@ -1,16 +1,21 @@
 #!/usr/bin/env python3
 """
-generate_fleet_schema.py - Render config/iotdb-schema-fleet.sql from fleet.json.
+IoTDB fleet schema SQL generator.
 
-config/iotdb-schema.sql provisions the database and the 62-measurement
-device template once. This companion file attaches and activates that
-template for every turbine in the fleet, and sets a per-customer TTL.
+Generates and renders config/iotdb-schema-fleet.sql from fleet topology defined
+in fleet.json, attaching device templates and setting TTL policies per customer.
 
-Generated rather than hand-written so adding a turbine to fleet.json
-cannot leave the schema behind. Apply with:
+The implementation supports:
 
-    docker exec -i iotdb /iotdb/sbin/start-cli.sh -h 127.0.0.1 -p 6667 \\
-        -u root -pw root -e "$(cat app/config/iotdb-schema-fleet.sql)"
+    - Multi-tenant site-level device template binding
+    - Idempotent device activation for all configured turbines
+    - Retention TTL configuration across customer subtrees
+
+Key classes / functions:
+
+    - render: Generate raw SQL statements from fleet configuration.
+    - main: Write rendered SQL to target configuration file.
+
 """
 
 from __future__ import annotations
@@ -25,11 +30,22 @@ from fleet import load_fleet
 from kafka_consumer import quote_path_node
 
 OUTPUT_PATH = REPO_ROOT / "app" / "config" / "iotdb-schema-fleet.sql"
-# 30 days, matching the retention requirement in iotdb-schema.sql.
 TTL_MS = 30 * 24 * 60 * 60 * 1000
 
 
 def render() -> str:
+    """
+    Render SQL commands to bind device templates and set TTLs for the fleet.
+
+    Returns:
+        str: Multiline SQL script formatted for IoTDB CLI execution.
+
+    Example:
+        >>> sql = render()
+        >>> "SET DEVICE TEMPLATE turbine_template" in sql
+        True
+
+    """
     fleet = load_fleet()
     lines = [
         "-- " + "=" * 74,
@@ -43,6 +59,7 @@ def render() -> str:
         "-- " + "=" * 74,
         "",
     ]
+
 
     for customer in fleet.customers:
         sites = sorted({t.site_id for t in customer.turbines})

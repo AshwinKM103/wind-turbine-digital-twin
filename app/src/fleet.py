@@ -1,11 +1,23 @@
 """
-fleet.py - Typed accessor for config/fleet.json.
+Fleet topology loader and validation.
 
-The fleet topology (which turbines belong to which customer) is declared
-once in config/fleet.json and read here by every tool that needs it: the
-IoTDB schema generator and the tests. Keeping it in one file is what makes
-"one customer's device path must never collide with another's" checkable
-rather than a convention spread across five places.
+Loads turbine fleet definitions from fleet.json and provides typed access to
+customer, site, and turbine identifiers. Enforces referential integrity and
+generates IoTDB device path identifiers.
+
+The implementation supports:
+
+    - Validation of fleet hierarchy and uniqueness
+    - Device path computation for IoTDB writes
+    - Multi-tenant data isolation verification
+
+Key classes / functions:
+
+    - Fleet: Aggregated fleet topology container.
+    - Customer: Customer identity and associated turbines.
+    - Turbine: Turbine identity and device path generator.
+    - load_fleet: Load and parse fleet configuration from JSON.
+
 """
 
 from __future__ import annotations
@@ -24,6 +36,16 @@ class FleetConfigError(Exception):
 
 @dataclass(frozen=True, slots=True)
 class Turbine:
+    """
+    Representation of an individual wind turbine within a fleet customer site.
+
+    Args:
+        customer_id (str): Identifier of the owning customer.
+        site_id (str): Geographic or logical site location identifier.
+        turbine_id (str): Unique turbine identifier within the site.
+        health_port (int): Port number dedicated to the turbine health endpoint.
+
+    """
     customer_id: str
     site_id: str
     turbine_id: str
@@ -31,11 +53,27 @@ class Turbine:
 
     @property
     def device_path(self) -> str:
+        """
+        Return the fully qualified IoTDB device path for the turbine.
+
+        Returns:
+            str: Path formatted as root.digitaltwin.<customer>.<site>.<turbine>.
+
+        """
         return f"root.digitaltwin.{self.customer_id}.{self.site_id}.{self.turbine_id}"
 
 
 @dataclass(frozen=True, slots=True)
 class Customer:
+    """
+    Customer entity owning a collection of wind turbines.
+
+    Args:
+        customer_id (str): Unique identifier for the customer.
+        display_name (str): Human-readable customer organization name.
+        turbines (tuple[Turbine, ...]): Immutable collection of turbines owned.
+
+    """
     customer_id: str
     display_name: str
     turbines: tuple[Turbine, ...]
@@ -43,14 +81,48 @@ class Customer:
 
 @dataclass(frozen=True, slots=True)
 class Fleet:
+    """
+    Root container representing the entire multi-tenant turbine fleet topology.
+
+    Args:
+        device_path_root (str): Root storage group prefix for IoTDB device paths.
+        customers (tuple[Customer, ...]): Customers registered in the fleet.
+
+    """
     device_path_root: str
     customers: tuple[Customer, ...]
 
     @property
     def turbines(self) -> tuple[Turbine, ...]:
+        """
+        Return a flattened tuple of all turbines across all customers.
+
+        Returns:
+            tuple[Turbine, ...]: All registered turbines in the fleet.
+
+        """
         return tuple(t for c in self.customers for t in c.turbines)
 
     def customer(self, customer_id: str) -> Customer:
+        """
+        Find and return a customer by identifier.
+
+        Args:
+            customer_id (str): The unique customer identifier to search.
+
+        Returns:
+            Customer: Customer matching the provided identifier.
+
+        Raises:
+            FleetConfigError: If no customer matches the customer_id.
+
+        Example:
+            >>> fleet = load_fleet()
+            >>> c = fleet.customer("zephyr-energy")
+            >>> print(c.display_name)
+            Zephyr Energy
+
+        """
         for candidate in self.customers:
             if candidate.customer_id == customer_id:
                 return candidate
@@ -86,9 +158,6 @@ def _parse(document: dict) -> Fleet:
 
 
 def _validate(fleet: Fleet) -> None:
-    """Catch the topology mistakes that would otherwise surface as silent
-    data corruption (two turbines sharing a device path) or a container
-    that will not start (two turbines claiming the same health port)."""
     if not fleet.customers:
         raise FleetConfigError("fleet defines no customers")
 
@@ -112,8 +181,27 @@ def _validate(fleet: Fleet) -> None:
 
 @lru_cache(maxsize=4)
 def load_fleet(path: Path | str = DEFAULT_FLEET_PATH) -> Fleet:
-    """Load and validate the fleet topology. Cached: the file is immutable
-    for the lifetime of a process."""
+    """
+    Load and validate turbine fleet topology from JSON configuration.
+
+    Parses customer, site, and turbine definitions, validating that device paths
+    and health ports are globally unique. Results are memoized via LRU cache.
+
+    Args:
+        path (Path | str, optional): File path to fleet.json. Defaults to DEFAULT_FLEET_PATH.
+
+    Returns:
+        Fleet: Fully populated and validated Fleet hierarchy.
+
+    Raises:
+        FleetConfigError: If file is missing, contains invalid JSON, or fails topology checks.
+
+    Example:
+        >>> fleet = load_fleet()
+        >>> len(fleet.turbines) >= 1
+        True
+
+    """
     fleet_path = Path(path)
     try:
         document = json.loads(fleet_path.read_text())
@@ -125,3 +213,4 @@ def load_fleet(path: Path | str = DEFAULT_FLEET_PATH) -> Fleet:
         return _parse(document)
     except (KeyError, TypeError, ValueError) as exc:
         raise FleetConfigError(f"fleet config at {fleet_path} is malformed: {exc}") from exc
+

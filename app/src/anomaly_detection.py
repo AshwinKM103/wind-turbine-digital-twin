@@ -1,32 +1,24 @@
-#!/usr/bin/env python3
 """
-anomaly_detection.py - Anomaly detection and alert generation for wind turbine sensors.
+Anomaly detection engine and alert generation service for wind turbine sensors.
 
-Implements multiple detection strategies:
-1. Statistical (out-of-range, mean ± 3σ)
-2. State-aware (thresholds vary by IDLE/RAMP_UP/STEADY_STATE/RAMP_DOWN)
-3. Temporal (drift detection, stuck values, rapid changes)
-4. Correlation-based (multi-sensor anomalies, divergence detection)
-5. Rule-based (custom business logic)
+Consumes incoming telemetry readings and applies statistical, state-aware,
+temporal, and multi-sensor correlation rules to detect operational faults,
+sensor drifts, and anomalous conditions before dispatching alerts.
 
-Runs as a parallel Kafka consumer (separate from the IoTDB writer) to:
-- Detect anomalies in real-time
-- Publish anomalies to a separate Kafka topic
-- Maintain grace periods to reduce false positives
-- Track confirmation counts for critical alerts
+The implementation supports:
 
-Messages published to: turbine.anomaly.alerts.v1
-Payload includes: customer_id, turbine_id, sensor, severity, reason, timestamp
+    - Statistical out-of-range checks with operational state awareness
+    - Temporal drift, rapid rise, and stuck-sensor fault detection
+    - Cross-sensor correlation break and composite boolean condition evaluation
+    - False-positive suppression using confirmation counts and grace periods
 
-Configuration: app/config/anomaly_thresholds.json
+Key classes / functions:
 
-Run with:
-    python anomaly_detection.py
+    - AnomalyDetector: Main detection engine evaluating windowed telemetry readings.
+    - Alert: Structured alert dataclass containing severity and threshold diagnostics.
+    - SensorReading: Normalized telemetry event data structure.
+    - AlertSeverity / DetectionType: Enumerated classifications for detected anomalies.
 
-Environment variables:
-    ANOMALY_DETECTOR_ENABLED=true
-    ANOMALY_GRACE_PERIOD_MINUTES=5
-    ANOMALY_CONFIRMATION_COUNT=3
 """
 
 import json
@@ -49,14 +41,37 @@ log = configure_logging("anomaly-detector")
 
 
 class AlertSeverity(Enum):
-    """Alert severity levels."""
+    """
+    Alert severity classification levels.
+
+    Attributes:
+        INFO (str): Informational alert requiring no immediate intervention.
+        WARNING (str): Potential issue or early warning sign.
+        CRITICAL (str): Urgent fault condition requiring prompt mitigation.
+
+    """
+
     INFO = "info"
     WARNING = "warning"
     CRITICAL = "critical"
 
 
 class DetectionType(Enum):
-    """Types of anomalies detected."""
+    """
+    Types and categories of anomaly detection mechanisms.
+
+    Attributes:
+        OUT_OF_RANGE (str): Value exceeded state-specific min/max thresholds.
+        DRIFT (str): Sensor calibration or gradual physical value drift over time.
+        STUCK_VALUE (str): Sensor output unchanged across multiple evaluation windows.
+        RAPID_RISE (str): Rapid absolute rate of rise over short intervals.
+        RAPID_INCREASE (str): Rapid percentage jump above baseline average.
+        CORRELATION_BREAK (str): Divergence between paired correlated sensors.
+        MULTI_SENSOR (str): Simultaneous condition match across multiple distinct sensors.
+        STATE_ANOMALY (str): Sensor telemetry conflicting with operational state machine.
+
+    """
+
     OUT_OF_RANGE = "out_of_range"
     DRIFT = "drift"
     STUCK_VALUE = "stuck_value"
@@ -69,7 +84,25 @@ class DetectionType(Enum):
 
 @dataclass
 class Alert:
-    """Anomaly alert message."""
+    """
+    Anomaly alert message payload and diagnostic metadata.
+
+    Attributes:
+        alert_id (str): Unique alert identifier UUID.
+        timestamp_ms (int): Millisecond epoch timestamp when anomaly triggered.
+        customer_id (str): Customer identifier.
+        turbine_id (str): Turbine identifier.
+        device_path (str): Fully qualified IoTDB device path.
+        sensor (str): Name of primary anomalous sensor.
+        value (float): Measured value triggering alert.
+        detection_type (str): Classification type of detection.
+        severity (str): Alert severity level string ('info', 'warning', 'critical').
+        reason (str): Human-readable explanatory description.
+        threshold_info (Optional[Dict]): Diagnostic threshold evaluation context.
+        additional_context (Optional[Dict]): Additional metadata or correlation details.
+
+    """
+
     alert_id: str
     timestamp_ms: int
     customer_id: str
@@ -84,13 +117,32 @@ class Alert:
     additional_context: Optional[Dict] = None
 
     def to_json(self) -> str:
-        """Serialize alert to JSON for Kafka."""
+        """
+        Serialize alert dataclass to JSON string for Kafka transmission.
+
+        Returns:
+            str: JSON formatted string representation.
+
+        """
         return json.dumps(asdict(self))
 
 
 @dataclass
 class SensorReading:
-    """Single sensor reading with metadata."""
+    """
+    Single sensor reading with identity and sequence metadata.
+
+    Attributes:
+        timestamp_ms (int): Millisecond epoch timestamp.
+        customer_id (str): Customer identifier.
+        turbine_id (str): Turbine identifier.
+        sensor_name (str): Measured metric or sensor name.
+        value (float): Scalar measurement value.
+        device_path (str): Fully qualified IoTDB device path.
+        sequence_number (int): Message sequence number.
+
+    """
+
     timestamp_ms: int
     customer_id: str
     turbine_id: str
@@ -102,40 +154,51 @@ class SensorReading:
 
 class AnomalyDetector:
     """
-    Main anomaly detection engine.
+    Main anomaly detection engine for turbine telemetry.
 
-    Maintains rolling windows of sensor data, detects anomalies using
-    multiple methods, tracks confirmation counts to reduce false positives,
-    and publishes alerts to Kafka topic.
+    Maintains rolling time-series windows of sensor data, evaluates rule sets
+    across multiple detection algorithms, tracks confirmation counts to filter
+    transient false positives, and publishes confirmed alerts to Kafka.
+
     """
 
-    def __init__(self, config_path: str = "app/config/anomaly_thresholds.json"):
-        """Initialize detector with configuration."""
+    def __init__(self, config_path: str = "app/config/anomaly_thresholds.json") -> None:
+        """
+        Initialize anomaly detector with configuration file and state buffers.
+
+        Args:
+            config_path (str, optional): Path to JSON configuration file. Defaults to "app/config/anomaly_thresholds.json".
+
+        """
         self.config = self._load_config(config_path)
         self.global_settings = self.config.get("global_settings", {})
-
-        # Sensor history: {(customer, turbine, sensor): deque of readings}
         self.sensor_history: Dict[Tuple[str, str, str], deque] = defaultdict(
-            lambda: deque(maxlen=3600)  # Keep 1 hour @ 1 Hz
+            lambda: deque(maxlen=3600)
         )
-
-        # Alert tracking: {(customer, turbine, sensor, type): {count, last_alert_time}}
-        # Used to avoid alert spam and implement confirmation counts
         self.alert_tracking: Dict = defaultdict(lambda: {
             "count": 0,
             "first_triggered": None,
             "last_triggered": None,
             "last_published": None,
         })
-
-        # Grace periods: {(customer, turbine, sensor): end_time_ms}
-        # Suppress alerts for a sensor after one fires
         self.grace_periods: Dict[Tuple[str, str, str], int] = {}
-
         self.producer = self._build_producer()
 
     def _load_config(self, config_path: str) -> Dict:
-        """Load anomaly threshold configuration from JSON file."""
+        """
+        Load anomaly threshold configuration from JSON file.
+
+        Args:
+            config_path (str): File path to anomaly thresholds JSON.
+
+        Returns:
+            Dict: Parsed configuration dictionary.
+
+        Raises:
+            FileNotFoundError: If configuration file does not exist.
+            json.JSONDecodeError: If file content is not valid JSON.
+
+        """
         try:
             with open(config_path, "r") as f:
                 return json.load(f)
@@ -147,7 +210,13 @@ class AnomalyDetector:
             raise
 
     def _build_producer(self) -> Producer:
-        """Build Kafka producer for anomaly alerts."""
+        """
+        Build Kafka producer for publishing anomaly alerts.
+
+        Returns:
+            Producer: Configured idempotent confluent_kafka Producer instance.
+
+        """
         return Producer({
             "bootstrap.servers": Config.KAFKA_BOOTSTRAP_SERVERS,
             "acks": "all",
@@ -159,21 +228,22 @@ class AnomalyDetector:
 
     def process_reading(self, reading: SensorReading) -> List[Alert]:
         """
-        Process a single sensor reading and detect anomalies.
+        Process a single sensor reading and detect anomalies across algorithms.
 
-        Returns list of alerts (possibly empty if no anomalies detected).
+        Args:
+            reading (SensorReading): Normalized sensor telemetry reading.
+
+        Returns:
+            List[Alert]: List of triggered Alert objects (empty if nominal).
+
         """
         alerts = []
-
-        # Store in history
         key = (reading.customer_id, reading.turbine_id, reading.sensor_name)
         self.sensor_history[key].append(reading)
 
-        # Skip detection during grace period
         if self._is_in_grace_period(key, reading.timestamp_ms):
             return alerts
 
-        # Run all detection methods
         detection_methods = [
             self._detect_out_of_range,
             self._detect_stuck_value,
@@ -202,31 +272,62 @@ class AnomalyDetector:
         return alerts
 
     def _is_in_grace_period(self, key: Tuple[str, str, str], timestamp_ms: int) -> bool:
-        """Check if sensor is in grace period (suppress duplicate alerts)."""
+        """
+        Check if sensor is within an active grace period suppressing duplicate alerts.
+
+        Args:
+            key (Tuple[str, str, str]): Composite key of (customer_id, turbine_id, sensor_name).
+            timestamp_ms (int): Current reading timestamp in epoch milliseconds.
+
+        Returns:
+            bool: True if inside active grace period window, False otherwise.
+
+        """
         grace_end = self.grace_periods.get(key)
         if grace_end is None:
             return False
         if timestamp_ms >= grace_end:
-            # Grace period expired
             del self.grace_periods[key]
             return False
         return True
 
     def _enter_grace_period(self, key: Tuple[str, str, str], timestamp_ms: int) -> None:
-        """Enter grace period for a sensor."""
+        """
+        Enter a cooldown grace period for a sensor after an alert fires.
+
+        Args:
+            key (Tuple[str, str, str]): Composite sensor key tuple.
+            timestamp_ms (int): Current reading timestamp in epoch milliseconds.
+
+        """
         grace_minutes = self.global_settings.get("grace_period_minutes", 5)
         grace_period_ms = grace_minutes * 60 * 1000
         self.grace_periods[key] = timestamp_ms + grace_period_ms
 
     def _get_sensor_spec(self, sensor_name: str) -> Optional[Dict]:
-        """Retrieve sensor specification from config."""
+        """
+        Retrieve configuration specification for a given sensor name.
+
+        Args:
+            sensor_name (str): Sensor measurement identifier.
+
+        Returns:
+            Optional[Dict]: Sensor threshold and anomaly rule configuration dictionary.
+
+        """
         return self.config.get("sensors", {}).get(sensor_name)
 
     def _infer_turbine_state(self, customer_id: str, turbine_id: str) -> str:
         """
-        Infer current turbine operational state from RPM and torque.
+        Infer operational state from recent rotor speed and torque telemetry.
 
-        Returns: "IDLE", "RAMP_UP", "STEADY_STATE", or "RAMP_DOWN"
+        Args:
+            customer_id (str): Customer identifier.
+            turbine_id (str): Turbine identifier.
+
+        Returns:
+            str: Inferred state name ('IDLE', 'RAMP_UP', 'STEADY_STATE', or 'RAMP_DOWN').
+
         """
         # Try to find recent RPM and torque readings
         rpm_key = (customer_id, turbine_id, "TURBINE_SPEED_RPM")
@@ -253,9 +354,15 @@ class AnomalyDetector:
 
     def _detect_out_of_range(self, reading: SensorReading, key: Tuple) -> Optional[Alert]:
         """
-        Detect sensor reading outside configured thresholds.
+        Detect sensor reading outside state-dependent configured thresholds.
 
-        Uses state-aware thresholds (different limits for IDLE vs STEADY).
+        Args:
+            reading (SensorReading): Incoming sensor reading.
+            key (Tuple): Key tuple of (customer_id, turbine_id, sensor_name).
+
+        Returns:
+            Optional[Alert]: Out-of-range Alert if threshold violated, else None.
+
         """
         spec = self._get_sensor_spec(reading.sensor_name)
         if not spec:
@@ -269,7 +376,6 @@ class AnomalyDetector:
         if not out_of_range_rule:
             return None
 
-        # Get state-specific thresholds
         state = self._infer_turbine_state(reading.customer_id, reading.turbine_id)
         thresholds = spec.get("thresholds", {}).get(state, {})
 
@@ -281,7 +387,6 @@ class AnomalyDetector:
         warning_min = thresholds.get("warning_min")
         warning_max = thresholds.get("warning_max")
 
-        # Check critical range
         if critical_min is not None and reading.value < critical_min:
             return self._create_alert(
                 reading,
@@ -302,7 +407,6 @@ class AnomalyDetector:
                 {"critical_max": critical_max, "state": state},
             )
 
-        # Check warning range
         if warning_min is not None and reading.value < warning_min:
             return self._create_alert(
                 reading,
@@ -327,9 +431,15 @@ class AnomalyDetector:
 
     def _detect_stuck_value(self, reading: SensorReading, key: Tuple) -> Optional[Alert]:
         """
-        Detect sensor value not changing for an extended period.
+        Detect sensor value not changing over an extended temporal window.
 
-        Indicator of sensor failure or mechanical lock.
+        Args:
+            reading (SensorReading): Incoming sensor reading.
+            key (Tuple): Key tuple of (customer_id, turbine_id, sensor_name).
+
+        Returns:
+            Optional[Alert]: Stuck-value Alert if frozen readings exceed threshold, else None.
+
         """
         spec = self._get_sensor_spec(reading.sensor_name)
         if not spec:
@@ -349,7 +459,6 @@ class AnomalyDetector:
         if len(history) < 2:
             return None
 
-        # Check how long the value has been unchanged
         current_value = reading.value
         age_cutoff_ms = reading.timestamp_ms - (stuck_duration_s * 1000)
 
@@ -358,7 +467,7 @@ class AnomalyDetector:
             if r.timestamp_ms >= age_cutoff_ms and abs(r.value - current_value) < 0.001
         ]
 
-        if len(stuck_readings) > stuck_duration_s * 0.8:  # 80% of expected readings
+        if len(stuck_readings) > stuck_duration_s * 0.8:
             return self._create_alert(
                 reading,
                 DetectionType.STUCK_VALUE,
@@ -372,9 +481,15 @@ class AnomalyDetector:
 
     def _detect_rapid_rise(self, reading: SensorReading, key: Tuple) -> Optional[Alert]:
         """
-        Detect temperature or pressure rising rapidly.
+        Detect temperature or pressure rising rapidly over a rolling window.
 
-        Indicator of system stress (bearing overheating, pressure surge, etc).
+        Args:
+            reading (SensorReading): Incoming sensor reading.
+            key (Tuple): Key tuple of (customer_id, turbine_id, sensor_name).
+
+        Returns:
+            Optional[Alert]: Rapid rise Alert if rate of change exceeds limit, else None.
+
         """
         spec = self._get_sensor_spec(reading.sensor_name)
         if not spec:
@@ -395,7 +510,6 @@ class AnomalyDetector:
         if len(history) < 2:
             return None
 
-        # Find readings from N minutes ago
         window_ms = duration_minutes * 60 * 1000
         old_cutoff_ms = reading.timestamp_ms - window_ms
 
@@ -428,10 +542,15 @@ class AnomalyDetector:
 
     def _detect_rapid_increase(self, reading: SensorReading, key: Tuple) -> Optional[Alert]:
         """
-        Detect rapid percentage increase in sensor value relative to baseline.
+        Detect rapid percentage increase in sensor value relative to baseline average.
 
-        Used for vibration sensors that increase suddenly (bearing wear, imbalance).
-        Compares current value against baseline average over a window.
+        Args:
+            reading (SensorReading): Incoming sensor reading.
+            key (Tuple): Key tuple of (customer_id, turbine_id, sensor_name).
+
+        Returns:
+            Optional[Alert]: Rapid increase Alert if percentage change exceeds threshold, else None.
+
         """
         spec = self._get_sensor_spec(reading.sensor_name)
         if not spec:
@@ -452,7 +571,6 @@ class AnomalyDetector:
         if len(history) < 2:
             return None
 
-        # Find readings from baseline window
         window_ms = baseline_window_minutes * 60 * 1000
         old_cutoff_ms = reading.timestamp_ms - window_ms
 
@@ -461,14 +579,11 @@ class AnomalyDetector:
         if not baseline_readings:
             return None
 
-        # Calculate baseline average
         baseline_value = sum(r.value for r in baseline_readings) / len(baseline_readings)
         current_value = reading.value
 
-        # Calculate percentage increase
         if baseline_value == 0:
-            # Avoid division by zero; if baseline is 0 and current > 0, that's a big jump
-            if current_value > 0.1:  # Small threshold to avoid noise
+            if current_value > 0.1:
                 increase_percent = 100.0
             else:
                 increase_percent = 0.0
@@ -496,9 +611,15 @@ class AnomalyDetector:
 
     def _detect_drift(self, reading: SensorReading, key: Tuple) -> Optional[Alert]:
         """
-        Detect slow sensor drift over time.
+        Detect slow monotonic or directional drift over time.
 
-        Indicator of sensor calibration drift or gradual system change.
+        Args:
+            reading (SensorReading): Incoming sensor reading.
+            key (Tuple): Key tuple of (customer_id, turbine_id, sensor_name).
+
+        Returns:
+            Optional[Alert]: Drift Alert if gradual change exceeds threshold per hour, else None.
+
         """
         spec = self._get_sensor_spec(reading.sensor_name)
         if not spec:
@@ -515,22 +636,21 @@ class AnomalyDetector:
         drift_threshold_per_hour = drift_rule.get("drift_threshold_per_hour", 0.5)
         history = self.sensor_history[key]
 
-        if len(history) < 60:  # Need at least 60 seconds of history
+        if len(history) < 60:
             return None
 
-        # Compare oldest and newest values in history
         oldest = history[0]
         newest = history[-1]
 
         time_elapsed_ms = newest.timestamp_ms - oldest.timestamp_ms
-        if time_elapsed_ms < 600_000:  # Need at least 10 minutes
+        if time_elapsed_ms < 600_000:
             return None
 
         time_elapsed_hours = time_elapsed_ms / (3600 * 1000)
         drift = abs(newest.value - oldest.value)
         expected_drift = drift_threshold_per_hour * time_elapsed_hours
 
-        if drift > expected_drift * 1.5:  # 50% above threshold
+        if drift > expected_drift * 1.5:
             return self._create_alert(
                 reading,
                 DetectionType.DRIFT,
@@ -550,12 +670,16 @@ class AnomalyDetector:
 
     def _detect_correlation_break(self, reading: SensorReading, key: Tuple) -> Optional[Alert]:
         """
-        Detect when two sensors should be correlated but diverge.
+        Detect divergence between paired sensors that should track together.
 
-        Example: Bearing A and B temperatures should track within 5°C.
+        Args:
+            reading (SensorReading): Incoming sensor reading.
+            key (Tuple): Key tuple of (customer_id, turbine_id, sensor_name).
+
+        Returns:
+            Optional[Alert]: Correlation break Alert if paired sensors diverge, else None.
+
         """
-        # This is called for every sensor, but we only process correlation rules
-        # for certain sensor pairs. Check if this sensor is part of a rule.
         correlation_rules = self.config.get("correlation_rules", [])
 
         matching_rules = [
@@ -575,7 +699,17 @@ class AnomalyDetector:
         return None
 
     def _check_tracking_correlation(self, reading: SensorReading, rule: Dict) -> Optional[Alert]:
-        """Check if sensor pair tracking diverges."""
+        """
+        Check whether readings between paired sensors exceed maximum allowed divergence.
+
+        Args:
+            reading (SensorReading): Current sensor reading.
+            rule (Dict): Paired correlation rule configuration.
+
+        Returns:
+            Optional[Alert]: Alert if divergence exceeds tolerance, else None.
+
+        """
         sensor_pairs = rule.get("sensor_pairs", [])
         max_divergence = rule.get("max_divergence", 5.0)
 
@@ -618,15 +752,18 @@ class AnomalyDetector:
 
     def _check_multi_sensor_conditions(self, reading: SensorReading, key: Tuple) -> Optional[Alert]:
         """
-        Detect anomalies based on multiple sensor conditions (AND logic).
+        Detect anomalies based on multiple sensor conditions evaluated with AND logic.
 
-        Example: Alert if TT_109A > 85°C AND XT_600 > 4.0 mm/s simultaneously.
-        All conditions must be met for alert to fire.
+        Args:
+            reading (SensorReading): Incoming sensor reading.
+            key (Tuple): Key tuple of (customer_id, turbine_id, sensor_name).
+
+        Returns:
+            Optional[Alert]: Multi-sensor Alert if all conditions in rule are satisfied, else None.
+
         """
-        # Get all multi-sensor rules from config
         correlation_rules = self.config.get("correlation_rules", [])
 
-        # Find rules that have sensor_conditions array (not sensor_pairs)
         multi_sensor_rules = [
             r for r in correlation_rules
             if r.get("sensor_conditions") and r.get("enabled")
@@ -643,12 +780,21 @@ class AnomalyDetector:
         return None
 
     def _evaluate_multi_sensor_rule(self, reading: SensorReading, rule: Dict) -> Optional[Alert]:
-        """Evaluate if all conditions in a multi-sensor rule are met."""
+        """
+        Evaluate if all condition expressions in a multi-sensor rule are simultaneously met.
+
+        Args:
+            reading (SensorReading): Current trigger sensor reading.
+            rule (Dict): Rule dictionary containing list of sensor conditions.
+
+        Returns:
+            Optional[Alert]: Alert if all conditions pass, else None.
+
+        """
         conditions = rule.get("sensor_conditions", [])
         if not conditions:
             return None
 
-        # Check if all conditions are met
         all_conditions_met = True
         condition_details = []
 
@@ -660,18 +806,15 @@ class AnomalyDetector:
             if not all([sensor_name, operator, threshold is not None]):
                 continue
 
-            # Get latest reading for this sensor
             sensor_key = (reading.customer_id, reading.turbine_id, sensor_name)
             sensor_history = self.sensor_history.get(sensor_key, deque())
 
             if not sensor_history:
-                # Sensor has no recent reading, condition not met
                 all_conditions_met = False
                 break
 
             sensor_value = sensor_history[-1].value
 
-            # Evaluate condition based on operator
             condition_met = self._evaluate_condition(sensor_value, operator, threshold)
             condition_details.append({
                 "sensor": sensor_name,
@@ -685,7 +828,6 @@ class AnomalyDetector:
                 all_conditions_met = False
                 break
 
-        # If all conditions met, create alert (with confirmation count)
         if all_conditions_met:
             condition_strs = [f"{c['sensor']} {c['operator']} {c['threshold']}" for c in condition_details]
             condition_expr = ' AND '.join(condition_strs)
@@ -704,7 +846,18 @@ class AnomalyDetector:
         return None
 
     def _evaluate_condition(self, value: float, operator: str, threshold: float) -> bool:
-        """Evaluate a single condition: value operator threshold."""
+        """
+        Evaluate a single scalar inequality or equality condition.
+
+        Args:
+            value (float): Left operand scalar sensor value.
+            operator (str): Comparison operator symbol (e.g., '>', '<', '>=', '<=', '==', '!=').
+            threshold (float): Right operand threshold constant.
+
+        Returns:
+            bool: True if condition holds, False otherwise.
+
+        """
         if operator == ">":
             return value > threshold
         elif operator == "<":
@@ -714,7 +867,7 @@ class AnomalyDetector:
         elif operator == "<=":
             return value <= threshold
         elif operator == "==":
-            return abs(value - threshold) < 0.001  # Float comparison with tolerance
+            return abs(value - threshold) < 0.001
         elif operator == "!=":
             return abs(value - threshold) >= 0.001
         else:
@@ -728,23 +881,30 @@ class AnomalyDetector:
         severity: AlertSeverity,
         reason: str,
         threshold_info: Dict = None,
-    ) -> Alert:
+    ) -> Optional[Alert]:
         """
-        Create an alert, applying confirmation count logic to reduce false positives.
+        Create an alert after applying confirmation count threshold logic.
 
-        Returns alert if confirmed, or None if not yet confirmed.
+        Args:
+            reading (SensorReading): Trigger reading causing detection.
+            detection_type (DetectionType): Type of anomaly.
+            severity (AlertSeverity): Severity classification.
+            reason (str): Explanatory reason string.
+            threshold_info (Dict, optional): Threshold context dictionary. Defaults to None.
+
+        Returns:
+            Optional[Alert]: Alert instance if confirmation count satisfied, else None.
+
         """
         import uuid
 
         key = (reading.customer_id, reading.turbine_id, reading.sensor_name, detection_type.value)
         tracking = self.alert_tracking[key]
 
-        # Increment confirmation count
         tracking["count"] += 1
         tracking["first_triggered"] = tracking.get("first_triggered") or reading.timestamp_ms
         tracking["last_triggered"] = reading.timestamp_ms
 
-        # Check if confirmed (met confirmation count)
         confirmation_count = self.global_settings.get("confirmation_count", 3)
         if tracking["count"] < confirmation_count:
             log.debug(
@@ -756,13 +916,11 @@ class AnomalyDetector:
                     "required": confirmation_count,
                 }
             )
-            return None  # Not confirmed yet
+            return None
 
-        # Reset count after creating alert
         tracking["count"] = 0
         tracking["last_published"] = reading.timestamp_ms
 
-        # Enter grace period to prevent alert spam
         sensor_key = (reading.customer_id, reading.turbine_id, reading.sensor_name)
         self._enter_grace_period(sensor_key, reading.timestamp_ms)
 
@@ -794,9 +952,14 @@ class AnomalyDetector:
 
     def publish_alert(self, alert: Alert) -> bool:
         """
-        Publish alert to Kafka topic.
+        Publish an Alert instance to the Kafka anomaly alerts topic.
 
-        Returns True on success, False otherwise.
+        Args:
+            alert (Alert): Alert instance to serialize and publish.
+
+        Returns:
+            bool: True on successful produce dispatch, False on error.
+
         """
         try:
             self.producer.produce(
@@ -815,7 +978,13 @@ class AnomalyDetector:
 
 
 def build_consumer() -> Consumer:
-    """Build Kafka consumer for telemetry data."""
+    """
+    Build and configure a Kafka consumer for streaming telemetry events.
+
+    Returns:
+        Consumer: Configured confluent_kafka Consumer instance.
+
+    """
     return Consumer({
         "bootstrap.servers": Config.KAFKA_BOOTSTRAP_SERVERS,
         "group.id": "anomaly-detector-group",
@@ -828,9 +997,14 @@ def build_consumer() -> Consumer:
 
 def parse_telemetry_message(payload: dict) -> Optional[List[SensorReading]]:
     """
-    Parse telemetry JSON payload into list of SensorReading objects.
+    Parse telemetry JSON payload into a list of normalized SensorReading instances.
 
-    Returns None if payload is invalid.
+    Args:
+        payload (dict): Parsed JSON dictionary of incoming Kafka message.
+
+    Returns:
+        Optional[List[SensorReading]]: List of parsed SensorReading items, or None if invalid.
+
     """
     try:
         customer_id = payload.get("customer_id")
@@ -862,8 +1036,14 @@ def parse_telemetry_message(payload: dict) -> Optional[List[SensorReading]]:
         return None
 
 
-def run_detector():
-    """Main anomaly detection loop."""
+def run_detector() -> None:
+    """
+    Main anomaly detector process loop.
+
+    Subscribes to telemetry Kafka topic, parses sensor readings, evaluates anomalies,
+    and publishes alerts to Kafka while exposing health check metrics.
+
+    """
     health = start_health_server(Config.HEALTH_CHECK_PORT + 1, "anomaly-detector")
     health.set_check("kafka_connected", False, "not yet attempted")
 

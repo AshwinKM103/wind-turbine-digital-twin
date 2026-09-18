@@ -1,4 +1,16 @@
-"""Metadata synchronization subcommands for thingsboard_admin."""
+"""Metadata synchronization subcommands for thingsboard_admin CLI.
+
+Provides commands to push spatial 2D SVG coordinates, 3D mesh identifiers,
+orientation data, and operating limit thresholds from subsystem registries
+into ThingsBoard asset server-scope attributes.
+
+Exported Classes:
+    MetadataCommand: Handler for digital twin metadata synchronization.
+
+Exported Functions:
+    register_metadata_parser: Registers metadata subcommands with argparse.
+    run_sync_metadata: Entry point alias for metadata synchronization.
+"""
 
 from __future__ import annotations
 
@@ -33,6 +45,15 @@ MANAGED_KEYS = (
 
 
 def _build_attributes(sub: Subsystem, shared_thresholds: dict[str, float]) -> dict[str, Any]:
+    """Constructs dictionary of server-scope attributes for a subsystem asset.
+
+    Args:
+        sub: Subsystem definition containing spatial coordinates and sensor links.
+        shared_thresholds: Mapping of shared threshold configuration values from ThingsBoard.
+
+    Returns:
+        Dictionary containing mesh ID, sensor lists, coordinates, and limit values.
+    """
     limits = resolve_limits(sub, shared_thresholds)
     attrs: dict[str, Any] = {
         "meshId": sub.mesh_id,
@@ -55,11 +76,22 @@ def _build_attributes(sub: Subsystem, shared_thresholds: dict[str, float]) -> di
 
 
 class MetadataCommand(BaseCommand):
-    """Metadata synchronization command."""
+    """Metadata synchronization command for subsystem assets.
+
+    Handles fetching shared device thresholds and mapping them alongside
+    spatial CAD coordinates directly into ThingsBoard asset attributes.
+    """
 
     @classmethod
     def run_sync_metadata(cls, args: argparse.Namespace) -> int:
-        """Synchronizes 2D SVG coords, 3D GLB tags, and threshold limits onto subsystem assets."""
+        """Synchronizes 2D SVG coords, 3D GLB tags, and threshold limits onto subsystem assets.
+
+        Args:
+            args: Parsed command-line arguments containing device ID and run flags.
+
+        Returns:
+            Zero on successful synchronization or verification, non-zero on failure.
+        """
         cfg, session, http = cls.init_session(args, require_password=True, is_sysadmin=False)
         if not http:
             return 1
@@ -104,6 +136,11 @@ run_sync_metadata = MetadataCommand.run_sync_metadata
 
 
 def register_metadata_parser(subparsers: argparse._SubParsersAction) -> None:
+    """Registers the metadata subcommands and argument parser options.
+
+    Args:
+        subparsers: Subparser collection from argparse root command.
+    """
     parser = subparsers.add_parser("metadata", help="Digital twin metadata management")
     meta_subs = parser.add_subparsers(dest="metadata_command", required=True)
 
@@ -112,3 +149,4 @@ def register_metadata_parser(subparsers: argparse._SubParsersAction) -> None:
     sync_p.add_argument("--dry-run", action="store_true", help="Print changes without applying")
     sync_p.add_argument("--verify-only", action="store_true", help="Only verify existing metadata")
     sync_p.set_defaults(handler=MetadataCommand.run_sync_metadata)
+

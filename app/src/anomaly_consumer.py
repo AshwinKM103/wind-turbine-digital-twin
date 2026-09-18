@@ -1,11 +1,21 @@
-#!/usr/bin/env python3
 """
-Anomaly Detection Consumer - subscribes to Kafka telemetry and runs anomaly detection.
+Kafka consumer service for continuous turbine telemetry anomaly detection.
 
-Reads from KAFKA_TOPIC, processes readings through AnomalyDetector, and logs alerts.
-For Phase 1: anomalies logged only (not published to Kafka). Phase 2 will emit to alert topics.
+Subscribes to turbine telemetry topics, deserializes sensor measurement payloads,
+dispatches readings to the AnomalyDetector engine, logs triggered alerts,
+and reports service health readiness.
 
-Health check: GET /ready returns 200 when connected to Kafka and successfully processed ≥1 message.
+The implementation supports:
+
+    - Telemetry consumption with fault-tolerant error handling and signal traps
+    - Conversion of JSON telemetry payloads to normalized SensorReading instances
+    - Health server integration exposing readiness and liveness status
+
+Key classes / functions:
+
+    - AnomalyConsumer: Background consumer process managing Kafka polling and detection.
+    - main: Process entry point configuring health checking and launching consumer.
+
 """
 
 import json
@@ -28,9 +38,27 @@ config = Config()
 
 
 class AnomalyConsumer:
-    """Consumes telemetry from Kafka and runs anomaly detection."""
+    """
+    Consumes telemetry from Kafka and runs anomaly detection.
 
-    def __init__(self, health_state=None):
+    Attributes:
+        detector (AnomalyDetector): Anomaly detection rule engine.
+        consumer (Consumer): Active confluent_kafka Consumer instance.
+        running (bool): Flag controlling the message processing loop.
+        message_count (int): Counter of successfully consumed messages.
+        error_count (int): Counter of encountered consumption or parsing errors.
+        health_state (Optional[HealthState]): Application health check state.
+
+    """
+
+    def __init__(self, health_state=None) -> None:
+        """
+        Initialize anomaly consumer and configure subscription topic.
+
+        Args:
+            health_state (Optional[HealthState], optional): Health state object to update. Defaults to None.
+
+        """
         self.detector = AnomalyDetector("/app/config/anomaly_thresholds.json")
         self.consumer = Consumer({
             'bootstrap.servers': config.KAFKA_BOOTSTRAP_SERVERS,
@@ -47,8 +75,15 @@ class AnomalyConsumer:
         signal.signal(signal.SIGTERM, self._shutdown)
         signal.signal(signal.SIGINT, self._shutdown)
 
-    def _shutdown(self, signum, frame):
-        """Graceful shutdown on SIGTERM/SIGINT."""
+    def _shutdown(self, signum: int, frame) -> None:
+        """
+        Handle graceful shutdown on SIGTERM or SIGINT termination signals.
+
+        Args:
+            signum (int): Signal number received.
+            frame: Current stack frame.
+
+        """
         log.info(f"Shutdown signal {signum} received. Closing consumer.")
         self.running = False
 
@@ -57,11 +92,12 @@ class AnomalyConsumer:
         Convert Kafka message to SensorReading and run anomaly detection.
 
         Args:
-            message_dict: Deserialized JSON from Kafka topic
-            seq: sequence number for this reading
+            message_dict (dict): Deserialized JSON telemetry payload from Kafka topic.
+            seq (int, optional): Sequence number for this reading. Defaults to 0.
 
         Returns:
-            Alert dict if anomaly detected, else None
+            Optional[dict]: Alert dictionary if anomaly detected, else None.
+
         """
         try:
             customer_id = message_dict.get("customer_id", "unknown")
@@ -99,8 +135,11 @@ class AnomalyConsumer:
             log.error(f"Failed to process message: {e}", extra={"msg": str(message_dict)[:100]})
             return None
 
-    def run(self):
-        """Main consumer loop: poll Kafka, process readings, detect anomalies."""
+    def run(self) -> None:
+        """
+        Main consumer loop polling Kafka, processing readings, and updating health checks.
+
+        """
         log.info("Anomaly detection consumer started")
         sequence_number = 0
 
@@ -123,7 +162,6 @@ class AnomalyConsumer:
                     sequence_number += 1
                     self.message_count += 1
 
-                    # Mark as ready after first successful message
                     if self.message_count == 1 and self.health_state:
                         self.health_state.set_ready(True)
                         self.health_state.set_check("kafka", True, "consuming messages")
@@ -150,8 +188,11 @@ class AnomalyConsumer:
             self.consumer.close()
 
 
-def main():
-    """Entry point: initialize logging, health server, and consumer."""
+def main() -> None:
+    """
+    Entry point initializing logging, health check server, and anomaly consumer.
+
+    """
     health = start_health_server(config.HEALTH_CHECK_PORT, "anomaly-detector")
     consumer = AnomalyConsumer(health_state=health)
 
