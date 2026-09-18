@@ -1,20 +1,8 @@
-"""
-config.py - Centralized environment-variable configuration.
-
-All runtime configuration (hosts, ports, credentials, tuning knobs) comes
-from environment variables, which docker-compose populates from the
-.env file for the active environment (see .env.example). Nothing here is
-hardcoded, so the same image runs unmodified in dev/staging/production --
-only the .env file changes. Never hardcode secrets in code (see
-/home/ashwinkm/.claude/rules/security.md).
-"""
+"""Centralized environment-variable configuration for runtime services."""
 
 import os
 
 try:
-    # Convenience for running the scripts outside Docker (docker-compose
-    # itself injects .env values as real environment variables, so this
-    # is a no-op there). Never required in production containers.
     from dotenv import load_dotenv
 
     load_dotenv()
@@ -23,6 +11,7 @@ except ImportError:
 
 
 def _get_int(name: str, default: int) -> int:
+    """Parse an integer environment variable with fallback."""
     raw = os.environ.get(name)
     if raw is None or raw == "":
         return default
@@ -33,6 +22,7 @@ def _get_int(name: str, default: int) -> int:
 
 
 def _get_float(name: str, default: float) -> float:
+    """Parse a float environment variable with fallback."""
     raw = os.environ.get(name)
     if raw is None or raw == "":
         return default
@@ -42,7 +32,25 @@ def _get_float(name: str, default: float) -> float:
         raise ValueError(f"Environment variable {name}={raw!r} is not a valid float") from exc
 
 
+def _get_bool(name: str, default: bool) -> bool:
+    """Parse a boolean environment variable with fallback."""
+    raw = os.environ.get(name)
+    if raw is None or raw == "":
+        return default
+    normalised = raw.strip().lower()
+    if normalised in ("1", "true", "yes", "on"):
+        return True
+    if normalised in ("0", "false", "no", "off"):
+        return False
+    raise ValueError(f"Environment variable {name}={raw!r} is not a valid boolean")
+
+
+class ConfigError(Exception):
+    """A required setting is missing or self-contradictory."""
+
+
 class Config:
+    """Runtime configuration loaded from environment variables."""
     # Kafka
     KAFKA_BOOTSTRAP_SERVERS = os.environ.get("KAFKA_BOOTSTRAP_SERVERS_INTERNAL") or os.environ.get(
         "KAFKA_BOOTSTRAP_SERVERS", "localhost:19092"
@@ -52,20 +60,30 @@ class Config:
     DLQ_TOPIC = os.environ.get("DLQ_TOPIC", "turbine.telemetry.dlq")
 
     # IoTDB
-    IOTDB_HOST = os.environ.get("IOTDB_HOST", "iotdb")
+    IOTDB_HOST = os.environ.get("IOTDB_HOST", "localhost")
     IOTDB_PORT = _get_int("IOTDB_PORT", 6667)
     IOTDB_USER = os.environ.get("IOTDB_USER", "root")
     IOTDB_PASSWORD = os.environ.get("IOTDB_PASSWORD", "root")
+
+    # Postgres (alerts + turbine state history; see postgres_store.py)
+    POSTGRES_ENABLED = _get_bool("POSTGRES_ENABLED", True)
+    POSTGRES_HOST = os.environ.get("POSTGRES_HOST", "postgres")
+    POSTGRES_PORT = _get_int("POSTGRES_PORT", 5432)
+    POSTGRES_DB = os.environ.get("POSTGRES_DB", "turbine")
+    POSTGRES_USER = os.environ.get("POSTGRES_USER", "turbine")
+    POSTGRES_PASSWORD = os.environ.get("POSTGRES_PASSWORD", "")
+    POSTGRES_RETENTION_DAYS = _get_int("POSTGRES_RETENTION_DAYS", 30)
+    POSTGRES_QUEUE_SIZE = _get_int("POSTGRES_QUEUE_SIZE", 10000)
+
+    # Turbine state timeline
+    STATE_STABILITY_SECONDS = _get_float("STATE_STABILITY_SECONDS", 30.0)
+    STATE_STALE_SECONDS = _get_float("STATE_STALE_SECONDS", 120.0)
 
     # Device / topology
     CUSTOMER_ID = os.environ.get("CUSTOMER_ID", "customer1")
     SITE_ID = os.environ.get("SITE_ID", "site1")
     TURBINE_ID = os.environ.get("TURBINE_ID", "turbine01")
     DEVICE_PATH_ROOT = os.environ.get("DEVICE_PATH_ROOT", "root.digitaltwin")
-    # Fallback device path only -- the multi-turbine consumer derives the
-    # real path per message from the payload's customer_id/turbine_id (see
-    # kafka_consumer.device_path_for). This stays for single-turbine
-    # deployments and for logging the consumer's default tenant.
     DEVICE_PATH = os.environ.get(
         "DEVICE_PATH", f"{DEVICE_PATH_ROOT}.{CUSTOMER_ID}.{SITE_ID}.{TURBINE_ID}"
     )
@@ -74,19 +92,11 @@ class Config:
     SAMPLE_INTERVAL_S = _get_float("SAMPLE_INTERVAL_S", 1.0)
     PRODUCE_LOG_EVERY_N = _get_int("PRODUCE_LOG_EVERY_N", 30)
 
-    # Synthetic generator state machine (seconds per operating state).
-    # Defaults give a ~14-minute cycle: long enough that STEADY_STATE
-    # dominates (as in a real duty cycle), short enough that a demo sees
-    # every state within one dashboard session.
+    # Synthetic generator state machine durations (seconds)
     STATE_IDLE_DURATION_S = _get_float("STATE_IDLE_DURATION_S", 60.0)
     STATE_RAMP_UP_DURATION_S = _get_float("STATE_RAMP_UP_DURATION_S", 120.0)
     STATE_STEADY_DURATION_S = _get_float("STATE_STEADY_DURATION_S", 600.0)
     STATE_RAMP_DOWN_DURATION_S = _get_float("STATE_RAMP_DOWN_DURATION_S", 90.0)
-
-    # Sensor display-name / unit metadata (generated from sensor_profiles.py)
-    SENSOR_MAPPINGS_PATH = os.environ.get(
-        "SENSOR_MAPPINGS_PATH", "/app/config/sensor_mappings.json"
-    )
 
     # Consumer tuning
     BATCH_SIZE = _get_int("BATCH_SIZE", 50)
@@ -103,4 +113,47 @@ class Config:
 
     # Logging
     LOG_DIR = os.environ.get("LOG_DIR", "./logs")
-    LOG_LEVEL = os.environ.get("LOG_LEVEL", "INFO")
+    LOG_LEVEL = os.environ.get("LOG_LEVEL", "DEBUG")
+
+    @classmethod
+    def postgres_dsn(cls) -> str:
+        """libpq connection string for the alert/state store."""
+        from urllib.parse import quote
+
+        user = quote(cls.POSTGRES_USER, safe="")
+        password = quote(cls.POSTGRES_PASSWORD, safe="")
+        return (
+            f"postgresql://{user}:{password}@"
+            f"{cls.POSTGRES_HOST}:{cls.POSTGRES_PORT}/{cls.POSTGRES_DB}"
+        )
+
+    @classmethod
+    def validate_postgres(cls) -> None:
+        """Validate Postgres environment variables when enabled."""
+        if not cls.POSTGRES_ENABLED:
+            return
+        missing = [
+            name
+            for name in ("POSTGRES_HOST", "POSTGRES_DB", "POSTGRES_USER", "POSTGRES_PASSWORD")
+            if not getattr(cls, name)
+        ]
+        if missing:
+            raise ConfigError(
+                "POSTGRES_ENABLED is true but "
+                + ", ".join(missing)
+                + " is unset. Set it in .env (see .env.example), or set "
+                "POSTGRES_ENABLED=false to run without alert persistence."
+            )
+        if not 1 <= cls.POSTGRES_PORT <= 65535:
+            raise ConfigError(f"POSTGRES_PORT={cls.POSTGRES_PORT} is not a valid TCP port")
+        if cls.POSTGRES_RETENTION_DAYS < 1:
+            raise ConfigError(
+                f"POSTGRES_RETENTION_DAYS={cls.POSTGRES_RETENTION_DAYS} would delete "
+                "data as fast as it is written"
+            )
+        if cls.STATE_STALE_SECONDS <= cls.STATE_STABILITY_SECONDS:
+            raise ConfigError(
+                f"STATE_STALE_SECONDS ({cls.STATE_STALE_SECONDS}) must exceed "
+                f"STATE_STABILITY_SECONDS ({cls.STATE_STABILITY_SECONDS}); otherwise "
+                "every turbine is marked DOWN before its first state is confirmed"
+            )

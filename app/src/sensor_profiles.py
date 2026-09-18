@@ -1,31 +1,4 @@
-"""
-sensor_profiles.py - Physical characteristics of the 61 turbine sensor channels.
-
-Single source of truth for what each measurement *means* (display name,
-unit, category) and how it *behaves* (value at idle, value at full load,
-noise amplitude, drift rate). Two consumers:
-
-  - synthetic_producer.py  - generates realistic telemetry from these profiles
-  - config/sensor_mappings.json - generated from these profiles (see
-    tools/generate_sensor_mappings.py) and read by Grafana dashboards to
-    render "Gearbox Bearing Temp A" instead of the raw "TT_109A".
-
-Measurement names and their order are locked to kafka_consumer.MEASUREMENTS
-and config/iotdb-schema.sql's device template. A test asserts this; do not
-reorder without updating all three.
-
-Value model (see SensorSimulator): every channel is expressed as a linear
-interpolation between its idle value and its full-load value, driven by a
-single per-turbine load factor in [0, 1] produced by the operating-state
-machine. This keeps all 61 channels physically correlated (RPM, torque,
-bearing temperature and vibration all rise together) instead of drifting
-independently, which is what makes the data usable for anomaly detection.
-
-Each channel additionally carries two time constants (see CategoryTuning):
-how fast it follows a change in load, and how quickly its noise
-decorrelates. Those govern the *shape* of the trace rather than its range,
-and are what make a chart read as a line instead of a shaded band.
-"""
+"""Physical profiles and dynamic tuning for 61 turbine sensor channels."""
 
 from __future__ import annotations
 
@@ -34,6 +7,8 @@ from enum import StrEnum
 
 
 class SensorCategory(StrEnum):
+    """Broad physical category for sensor grouping and default dynamics."""
+
     PRESSURE = "pressure"
     FLOW = "flow"
     TEMPERATURE = "temperature"
@@ -56,10 +31,7 @@ class SensorProfile:
     drift_per_hour: float
     min_value: float
     max_value: float
-    # Dynamics (see SensorSimulator). Both are time constants in seconds and
-    # neither changes a channel's stationary distribution -- they only
-    # govern how it moves between values, which is what separates a smooth
-    # trace from a pixelated one.
+    # Time constants in seconds governing step response and noise correlation
     response_time_s: float
     noise_correlation_s: float
 
@@ -68,61 +40,33 @@ class SensorProfile:
         return self.idle_value + (self.load_value - self.idle_value) * load_factor
 
 
-# Per-unit calibration spread, applied to a channel's full-load value only
-# (see SensorSimulator). Instrument accuracy is specified as a percentage of
-# full scale, and two turbines at rest read the same while two turbines at
-# load differ in efficiency -- so biasing the load endpoint rather than the
-# absolute reading is both the physical model and the one that keeps small
-# dynamic-range channels (PT_109A spans 31->33 bar) inside their configured
-# anomaly bands.
+# Calibration spread applied to full-load values across turbine units
 TURBINE_BIAS_FRACTION = 0.02
 
-# Noise is suppressed at idle and full at load: a stopped machine is quiet
-# because there is little mechanical excitation to measure.
+# Multiplier to scale down noise amplitude during idle state
 IDLE_NOISE_FRACTION = 0.3
 
-# How many standard deviations of noise the absolute range must accommodate.
-# 3 sigma covers 99.7% of samples; the simulator clamps the rest, which is a
-# safety rail against runaway drift rather than a routine code path.
+# Standard deviations accommodated by absolute range before clamping
 _NOISE_SIGMA_GUARD = 3.0
 
 @dataclass(frozen=True, slots=True)
 class CategoryTuning:
-    """How a family of sensors behaves, beyond its idle and load endpoints.
-
-    noise_fraction / drift_fraction are fractions of the channel's
-    idle->load span. The two time constants describe *dynamics* and are the
-    fix for charts that looked pixelated: amplitude was never the problem,
-    the absence of any correlation between consecutive samples was.
-    """
+    """Dynamic response and noise characteristics for a sensor category."""
 
     noise_fraction: float
     drift_fraction: float
     allows_negative: bool
-    # Time for the channel to cover 63% of a step change in load. A gearbox
-    # bearing does not reach its new temperature the instant RPM changes;
-    # modelling that lag is what removes the corner at every state
-    # transition and produces the gradual creep during a load hold.
+    # Time in seconds to reach 63% of step change in load
     response_time_s: float
-    # Correlation time of the measurement noise. Real instrument noise is
-    # band-limited, so a reading that is high now is probably still high a
-    # second later. Sampling independent Gaussians instead (as this file
-    # used to imply) is white noise, which is exactly what renders as a
-    # solid hairy band rather than a line.
+    # Correlation time of measurement noise in seconds
     noise_correlation_s: float
 
 
 _CATEGORY_TUNING: dict[SensorCategory, CategoryTuning] = {
     SensorCategory.PRESSURE: CategoryTuning(0.03, 0.01, False, 4.0, 8.0),
     SensorCategory.FLOW: CategoryTuning(0.04, 0.01, False, 6.0, 8.0),
-    # Thermal mass: slow to respond, and its noise is dominated by the
-    # transmitter's own filtering rather than by the process.
     SensorCategory.TEMPERATURE: CategoryTuning(0.02, 0.02, False, 30.0, 30.0),
-    # Broadband mechanical excitation, not a slowly varying process value --
-    # so the shortest correlation time of any family, but still not zero.
     SensorCategory.VIBRATION: CategoryTuning(0.10, 0.02, False, 15.0, 4.0),
-    # Speed, torque and actuator position are the machine's own control
-    # variables: they track the demand signal essentially without lag.
     SensorCategory.OPERATIONAL: CategoryTuning(0.005, 0.005, True, 2.0, 6.0),
 }
 
@@ -137,21 +81,13 @@ def _make_profile(
     load: float,
     noise_fraction: float | None = None,
 ) -> SensorProfile:
-    """Derive a full profile from the two values that actually carry
-    physical meaning: the channel's reading at rest and at full load.
-    Noise, drift and absolute bounds all follow from that span, so adding a
-    sensor means supplying two numbers rather than eight."""
+    """Derive full sensor profile with bounds, noise, and drift from idle and load endpoints."""
     tuning = _CATEGORY_TUNING[category]
     span = max(abs(load - idle), 0.01)
     noise_std = span * (noise_fraction if noise_fraction is not None else tuning.noise_fraction)
     drift_per_hour = span * tuning.drift_fraction
 
-    # Bounds must accommodate every legitimate source of variation --
-    # calibration bias, drift and noise -- otherwise the simulator's clamp
-    # would truncate normal operation into a flat line at the limit.
-    # Correlating the noise in time (see CategoryTuning.noise_correlation_s)
-    # leaves its stationary standard deviation at noise_std, so this 3-sigma
-    # guard is unaffected by that change.
+    # Bounds accommodate calibration bias, noise guards, and drift
     biased_low = min(idle, load * (1.0 - TURBINE_BIAS_FRACTION))
     biased_high = max(idle, load * (1.0 + TURBINE_BIAS_FRACTION))
     low_guard = _NOISE_SIGMA_GUARD * noise_std * IDLE_NOISE_FRACTION + drift_per_hour
@@ -181,6 +117,7 @@ def _make_profile(
 def _pressure(
     measurement: str, display_name: str, idle: float, load: float, unit: str = "kg/cm2"
 ) -> SensorProfile:
+    """Create a pressure SensorProfile."""
     return _make_profile(
         measurement,
         display_name,
@@ -193,18 +130,21 @@ def _pressure(
 
 
 def _flow(measurement: str, display_name: str, idle: float, load: float) -> SensorProfile:
+    """Create a flow SensorProfile."""
     return _make_profile(
         measurement, display_name, SensorCategory.FLOW, "TPH", "none", idle, load
     )
 
 
 def _temperature(measurement: str, display_name: str, idle: float, load: float) -> SensorProfile:
+    """Create a temperature SensorProfile."""
     return _make_profile(
         measurement, display_name, SensorCategory.TEMPERATURE, "degC", "celsius", idle, load
     )
 
 
 def _vibration(measurement: str, display_name: str, idle: float, load: float) -> SensorProfile:
+    """Create a vibration SensorProfile."""
     return _make_profile(
         measurement, display_name, SensorCategory.VIBRATION, "mm/s", "accMS2", idle, load
     )
@@ -219,6 +159,7 @@ def _operational(
     load: float,
     noise_fraction: float | None = None,
 ) -> SensorProfile:
+    """Create an operational SensorProfile."""
     return _make_profile(
         measurement,
         display_name,
@@ -231,10 +172,7 @@ def _operational(
     )
 
 
-# Ordered exactly as kafka_consumer.MEASUREMENTS (minus the trailing seq_no,
-# which is bookkeeping rather than a sensor). Idle/load values follow
-# config/anomaly_thresholds.json where that file defines a sensor, and the
-# family's typical operating band otherwise.
+# Ordered to match kafka_consumer.MEASUREMENTS (excluding seq_no)
 SENSOR_PROFILES: tuple[SensorProfile, ...] = (
     _pressure("PT_109A", "Inlet Pressure A", 31.0, 33.0, unit="bar"),
     _pressure("PT_110A", "Inlet Pressure B", 3.1, 3.4),
