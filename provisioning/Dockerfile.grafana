@@ -1,7 +1,0 @@
-FROM grafana/grafana:11.1.0
-
-RUN grafana-cli --version && \
-    grafana-cli admin reset-admin-password admin && \
-    grafana-cli plugins install apache-iotdb-datasource
-
-ENV GF_PLUGINS_ALLOW_LOADING_UNSIGNED_PLUGINS=apache-iotdb-datasource

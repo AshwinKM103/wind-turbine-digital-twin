@@ -469,7 +469,7 @@ services:
       - .env
     command:
       - python
-      - /app/tools/replay_daq_to_kafka.py
+      - /app/test_helpers/replay_daq_to_kafka.py
       - --bootstrap-servers
       - kafka:29092
       - --tb-host
@@ -479,7 +479,7 @@ services:
     ports:
       - "127.0.0.1:8085:8085"
     volumes:
-      - ./app/tools:/app/tools:ro
+      - ./app/test_helpers:/app/test_helpers:ro
       - ./data:/data:ro
       - ${STORAGE_PATH:-/mnt/data3/turbine-digitaltwin}/reports:/reports
     healthcheck:
