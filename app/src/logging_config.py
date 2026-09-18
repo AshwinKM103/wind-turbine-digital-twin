@@ -1,9 +1,9 @@
 """
 logging_config.py - Shared structured (JSON) logging setup.
 
-Used by synthetic_producer.py and kafka_consumer.py so both services emit the
-same log shape to stdout (captured by `docker logs`) and to a rotating
-file under LOG_DIR (default: /app/logs, i.e. ./app/logs on the host).
+Emits the same log shape as infrastructure.py's configure_logging: a
+rotating JSON file under LOG_DIR (default: /app/logs, i.e. ./app/logs on
+the host), file only.
 
 Every record includes: timestamp, level, service, request_id, message.
 request_id defaults to a per-process id but callers can pass a per-message
@@ -15,7 +15,6 @@ import json
 import logging
 import logging.handlers
 import os
-import sys
 import uuid
 from pathlib import Path
 
@@ -55,9 +54,8 @@ class JsonFormatter(logging.Formatter):
 
 def configure_logging(service: str, log_dir: str = None) -> logging.Logger:
     """
-    Configure the root logger for `service` with:
-      - a stdout stream handler (so `docker logs <container>` shows JSON)
-      - a rotating file handler: daily rotation, 10 backups kept, gzip'd
+    Configure the root logger for `service` with a rotating file handler:
+    daily rotation, 10 backups kept, gzip'd.
 
     log_dir defaults to $LOG_DIR or ./logs relative to cwd, matching the
     LOG_DIR env var wired up in docker-compose.yml (/app/logs inside each
@@ -71,9 +69,6 @@ def configure_logging(service: str, log_dir: str = None) -> logging.Logger:
     log_file = Path(log_dir) / "app.log"
 
     formatter = JsonFormatter(service)
-
-    stream_handler = logging.StreamHandler(sys.stdout)
-    stream_handler.setFormatter(formatter)
 
     # Daily rotation, keep 10 days, compress rotated files.
     file_handler = logging.handlers.TimedRotatingFileHandler(
@@ -93,7 +88,6 @@ def configure_logging(service: str, log_dir: str = None) -> logging.Logger:
     # Avoid duplicate handlers if configure_logging() is called twice
     # (e.g. reimported in tests).
     root.handlers.clear()
-    root.addHandler(stream_handler)
     root.addHandler(file_handler)
 
     return logging.getLogger(service)
