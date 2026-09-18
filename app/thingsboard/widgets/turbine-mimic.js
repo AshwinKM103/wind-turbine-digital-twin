@@ -1127,7 +1127,10 @@ function readLatestValues(ctx) {
       continue;
     }
     var last = row.data[row.data.length - 1];
-    out[row.dataKey.name] = { ts: last[0], value: last[1] };
+    // Handle both array format [ts, value] and object format {ts, value}
+    var ts = Array.isArray(last) ? last[0] : last.ts;
+    var value = Array.isArray(last) ? last[1] : last.value;
+    out[row.dataKey.name] = { ts: ts, value: value };
   }
   return out;
 }
