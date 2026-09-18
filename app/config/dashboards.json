@@ -1,0 +1,19 @@
+{
+  "dashboards": {
+    "overview": {
+      "id": "d_overview_001",
+      "name": "Fleet Overview",
+      "description": "System-wide status and multi-turbine fleet operational overview"
+    },
+    "turbine_detail": {
+      "id": "d_turbine_001",
+      "name": "Turbine Detail",
+      "description": "Individual turbine 2D SCADA, 3D digital twin, and timeseries diagnostics"
+    },
+    "health_matrix": {
+      "id": "d_health_001",
+      "name": "Subsystem Health Matrix",
+      "description": "Cross-subsystem real-time health scorecard and alarm limits"
+    }
+  }
+}
