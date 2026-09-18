@@ -1,12 +1,11 @@
 """
 fleet.py - Typed accessor for config/fleet.json.
 
-The fleet topology (which turbines belong to which customer, and each
-customer's Grafana tenancy) is declared once in config/fleet.json and read
-here by every tool that needs it: the schema generator, the Grafana
-provisioning script, the dashboard generator and the end-to-end tests.
-Keeping it in one file is what makes "customer1 must not see customer2's
-turbines" checkable rather than a convention spread across five places.
+The fleet topology (which turbines belong to which customer) is declared
+once in config/fleet.json and read here by every tool that needs it: the
+IoTDB schema generator and the tests. Keeping it in one file is what makes
+"one customer's device path must never collide with another's" checkable
+rather than a convention spread across five places.
 """
 
 from __future__ import annotations
@@ -34,22 +33,11 @@ class Turbine:
     def device_path(self) -> str:
         return f"root.digitaltwin.{self.customer_id}.{self.site_id}.{self.turbine_id}"
 
-    @property
-    def service_name(self) -> str:
-        """docker-compose service name, e.g. generator-c1-t01."""
-        customer_index = self.customer_id.removeprefix("customer")
-        turbine_index = self.turbine_id.removeprefix("turbine")
-        return f"generator-c{customer_index}-t{turbine_index}"
-
 
 @dataclass(frozen=True, slots=True)
 class Customer:
     customer_id: str
     display_name: str
-    grafana_org_id: int
-    grafana_login: str
-    datasource_uid: str
-    dashboard_uid: str
     turbines: tuple[Turbine, ...]
 
 
@@ -86,10 +74,6 @@ def _parse(document: dict) -> Fleet:
             Customer(
                 customer_id=raw_customer["customer_id"],
                 display_name=raw_customer["display_name"],
-                grafana_org_id=int(raw_customer["grafana_org_id"]),
-                grafana_login=raw_customer["grafana_login"],
-                datasource_uid=raw_customer["datasource_uid"],
-                dashboard_uid=raw_customer["dashboard_uid"],
                 turbines=turbines,
             )
         )
@@ -104,7 +88,7 @@ def _parse(document: dict) -> Fleet:
 def _validate(fleet: Fleet) -> None:
     """Catch the topology mistakes that would otherwise surface as silent
     data corruption (two turbines sharing a device path) or a container
-    that will not start (two generators binding the same health port)."""
+    that will not start (two turbines claiming the same health port)."""
     if not fleet.customers:
         raise FleetConfigError("fleet defines no customers")
 
@@ -121,11 +105,7 @@ def _validate(fleet: Fleet) -> None:
             )
         seen_ports[turbine.health_port] = turbine.device_path
 
-    seen_org_ids: set[int] = set()
     for customer in fleet.customers:
-        if customer.grafana_org_id in seen_org_ids:
-            raise FleetConfigError(f"duplicate grafana_org_id: {customer.grafana_org_id}")
-        seen_org_ids.add(customer.grafana_org_id)
         if not customer.turbines:
             raise FleetConfigError(f"customer {customer.customer_id} has no turbines")
 

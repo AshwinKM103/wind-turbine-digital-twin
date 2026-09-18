@@ -14,12 +14,18 @@ import pytest
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
+from config import Config
 from kafka_consumer import (
     BufferedRecord,
+    build_device_path,
     device_path_for,
     group_by_device,
     validate_payload,
 )
+
+
+def _default_site_path(customer: str, turbine: str) -> str:
+    return build_device_path(customer_id=customer, site_id=Config.SITE_ID, turbine_id=turbine)
 
 
 def _payload(customer="customer1", turbine="turbine01", **overrides):
@@ -36,9 +42,8 @@ def _payload(customer="customer1", turbine="turbine01", **overrides):
 
 class TestDevicePathRouting:
     def test_builds_path_from_payload_identifiers(self):
-        assert (
-            device_path_for(_payload("customer2", "turbine03"))
-            == "root.digitaltwin.customer2.site1.turbine03"
+        assert device_path_for(_payload("customer2", "turbine03")) == _default_site_path(
+            "customer2", "turbine03"
         )
 
     def test_uses_payload_site_id_when_present(self):
@@ -47,7 +52,7 @@ class TestDevicePathRouting:
 
     def test_falls_back_to_configured_site_when_absent(self):
         """Older producers predate site_id; such messages must still route."""
-        assert device_path_for(_payload()).endswith(".site1.turbine01")
+        assert device_path_for(_payload()) == _default_site_path("customer1", "turbine01")
 
     @pytest.mark.parametrize(
         "customer,turbine",
@@ -60,7 +65,7 @@ class TestDevicePathRouting:
     )
     def test_each_turbine_gets_a_distinct_path(self, customer, turbine):
         path = device_path_for(_payload(customer, turbine))
-        assert path == f"root.digitaltwin.{customer}.site1.{turbine}"
+        assert path == _default_site_path(customer, turbine)
 
     def test_rejects_path_traversal_in_customer_id(self):
         """A dot would let a producer write outside its own tenant subtree."""
@@ -98,11 +103,11 @@ class TestGroupByDevice:
         ]
         groups = group_by_device(records)
         assert set(groups) == {
-            "root.digitaltwin.customer1.site1.turbine01",
-            "root.digitaltwin.customer1.site1.turbine02",
-            "root.digitaltwin.customer2.site1.turbine03",
+            _default_site_path("customer1", "turbine01"),
+            _default_site_path("customer1", "turbine02"),
+            _default_site_path("customer2", "turbine03"),
         }
-        assert len(groups["root.digitaltwin.customer1.site1.turbine01"]) == 2
+        assert len(groups[_default_site_path("customer1", "turbine01")]) == 2
 
     def test_no_record_lands_in_another_tenants_group(self):
         records = [
@@ -116,7 +121,7 @@ class TestGroupByDevice:
 
     def test_preserves_record_order_within_a_group(self):
         records = [self._record("customer1", "turbine01", seq) for seq in range(5)]
-        group = group_by_device(records)["root.digitaltwin.customer1.site1.turbine01"]
+        group = group_by_device(records)[_default_site_path("customer1", "turbine01")]
         assert [r.timestamp for r in group] == [1000, 1001, 1002, 1003, 1004]
 
     def test_loses_no_records(self):

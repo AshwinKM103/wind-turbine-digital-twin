@@ -22,6 +22,7 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO_ROOT / "app" / "src"))
 
 from fleet import load_fleet
+from kafka_consumer import quote_path_node
 
 OUTPUT_PATH = REPO_ROOT / "app" / "config" / "iotdb-schema-fleet.sql"
 # 30 days, matching the retention requirement in iotdb-schema.sql.
@@ -45,6 +46,7 @@ def render() -> str:
 
     for customer in fleet.customers:
         sites = sorted({t.site_id for t in customer.turbines})
+        customer_node = quote_path_node(customer.customer_id)
         lines.append(
             f"-- {customer.display_name}: {len(customer.turbines)} turbine(s) "
             f"across {len(sites)} site(s)"
@@ -54,14 +56,16 @@ def render() -> str:
             # inherits the schema on first write, with no migration.
             lines.append(
                 f"SET DEVICE TEMPLATE turbine_template TO "
-                f"{fleet.device_path_root}.{customer.customer_id}.{site_id};"
+                f"{fleet.device_path_root}.{customer_node}.{quote_path_node(site_id)};"
             )
         for turbine in customer.turbines:
-            lines.append(
-                f"CREATE TIMESERIES USING DEVICE TEMPLATE ON {turbine.device_path};"
+            device_path = (
+                f"{fleet.device_path_root}.{customer_node}."
+                f"{quote_path_node(turbine.site_id)}.{quote_path_node(turbine.turbine_id)}"
             )
+            lines.append(f"CREATE TIMESERIES USING DEVICE TEMPLATE ON {device_path};")
         lines.append(
-            f"SET TTL TO {fleet.device_path_root}.{customer.customer_id} {TTL_MS};"
+            f"SET TTL TO {fleet.device_path_root}.{customer_node} {TTL_MS};"
         )
         lines.append("")
 

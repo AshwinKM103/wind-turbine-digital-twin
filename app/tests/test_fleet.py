@@ -14,7 +14,6 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "tools"))
 from fleet import Fleet, FleetConfigError, Turbine, _validate, load_fleet
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-COMPOSE_PATH = REPO_ROOT / "docker-compose.yml"
 SENSOR_MAPPINGS_PATH = REPO_ROOT / "app" / "config" / "sensor_mappings.json"
 FLEET_SCHEMA_PATH = REPO_ROOT / "app" / "config" / "iotdb-schema-fleet.sql"
 
@@ -24,31 +23,28 @@ def fleet():
     return load_fleet()
 
 
-def _turbine(customer="customer1", turbine="turbine01", port=8101) -> Turbine:
-    return Turbine(customer_id=customer, site_id="site1", turbine_id=turbine, health_port=port)
+def _turbine(customer="zephyr-energy", turbine="boreas", port=8101) -> Turbine:
+    return Turbine(
+        customer_id=customer, site_id="cascade-ridge", turbine_id=turbine, health_port=port
+    )
 
 
 class TestFleetConfig:
     def test_expected_fleet_shape(self, fleet):
         counts = {c.customer_id: len(c.turbines) for c in fleet.customers}
-        assert counts == {"customer1": 2, "customer2": 3, "customer3": 4}
+        assert counts == {"zephyr-energy": 1}
 
     def test_device_paths_are_unique_and_well_formed(self, fleet):
-        pattern = re.compile(r"^root\.digitaltwin\.customer\d+\.site\d+\.turbine\d+$")
+        pattern = re.compile(r"^root\.digitaltwin\.[a-z0-9-]+\.[a-z0-9-]+\.[a-z0-9-]+$")
         paths = [t.device_path for t in fleet.turbines]
-        assert len(set(paths)) == len(paths) == 9
+        assert len(set(paths)) == len(paths) == 1
         for path in paths:
             assert pattern.match(path), path
-
-    def test_service_names_follow_the_generator_convention(self, fleet):
-        names = [t.service_name for t in fleet.turbines]
-        assert "generator-c1-t01" in names
-        assert "generator-c2-t03" in names
-        assert "generator-c3-t09" in names
+        assert "root.digitaltwin.zephyr-energy.cascade-ridge.boreas" in paths
 
     def test_unknown_customer_raises(self, fleet):
         with pytest.raises(FleetConfigError, match="unknown customer_id"):
-            fleet.customer("customer99")
+            fleet.customer("unknown-customer")
 
     def test_missing_file_raises_config_error(self, tmp_path):
         with pytest.raises(FleetConfigError, match="not found"):
@@ -73,12 +69,8 @@ class TestFleetValidation:
             device_path_root="root.digitaltwin",
             customers=(
                 Customer(
-                    customer_id="customer1",
-                    display_name="Customer1",
-                    grafana_org_id=2,
-                    grafana_login="customer1@company.com",
-                    datasource_uid="iotdb-customer1",
-                    dashboard_uid="customer1-fleet",
+                    customer_id="zephyr-energy",
+                    display_name="Zephyr Energy",
                     turbines=tuple(turbines),
                 ),
             ),
@@ -91,7 +83,7 @@ class TestFleetValidation:
 
     def test_rejects_duplicate_health_port(self):
         clashing = self._fleet_with(
-            [_turbine(turbine="turbine01", port=8101), _turbine(turbine="turbine02", port=8101)]
+            [_turbine(turbine="boreas", port=8101), _turbine(turbine="zephyrus", port=8101)]
         )
         with pytest.raises(FleetConfigError, match="health port 8101 claimed by both"):
             _validate(clashing)
@@ -123,22 +115,20 @@ class TestGeneratedArtifactsAreCurrent:
 
         assert FLEET_SCHEMA_PATH.read_text() == render()
 
-    def test_compose_has_one_generator_service_per_turbine(self, fleet):
-        compose_text = COMPOSE_PATH.read_text()
-        for turbine in fleet.turbines:
-            assert f"  {turbine.service_name}:" in compose_text
-            assert f"HEALTH_CHECK_PORT={turbine.health_port}" in compose_text
-            assert f"TURBINE_ID={turbine.turbine_id}" in compose_text
-
-    def test_compose_generator_block_is_not_stale(self):
-        from generate_compose_generators import render_block
-
-        assert render_block() in COMPOSE_PATH.read_text()
-
     def test_schema_activates_every_turbine(self, fleet):
+        from kafka_consumer import quote_path_node
+
         schema = FLEET_SCHEMA_PATH.read_text()
         for turbine in fleet.turbines:
-            assert f"CREATE TIMESERIES USING DEVICE TEMPLATE ON {turbine.device_path};" in schema
+            quoted_path = ".".join(
+                [
+                    "root.digitaltwin",
+                    quote_path_node(turbine.customer_id),
+                    quote_path_node(turbine.site_id),
+                    quote_path_node(turbine.turbine_id),
+                ]
+            )
+            assert f"CREATE TIMESERIES USING DEVICE TEMPLATE ON {quoted_path};" in schema
 
 
 class TestSensorMappings:
