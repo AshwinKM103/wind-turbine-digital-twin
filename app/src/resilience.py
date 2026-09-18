@@ -1,12 +1,4 @@
-"""
-resilience.py - Circuit breaker + health-state tracking for IoTDB connections.
-
-Wraps IoTDB writes so that once the connection is judged unhealthy (N
-consecutive failures), the consumer stops hammering it for
-`reset_timeout_s` seconds (fail fast) instead of retrying every batch and
-piling up latency, then makes one "half-open" trial call to see if it has
-recovered.
-"""
+"""Circuit breaker and health tracking for external service connections."""
 
 import logging
 import threading
@@ -20,16 +12,11 @@ class CircuitBreakerOpenError(Exception):
 
 
 class CircuitBreaker:
-    """
-    Standard 3-state circuit breaker: CLOSED -> OPEN -> HALF_OPEN -> CLOSED.
+    """Three-state circuit breaker (CLOSED, OPEN, HALF_OPEN) for fault isolation."""
 
-    - CLOSED: calls pass through; failures increment a counter.
-    - OPEN: calls are rejected immediately until reset_timeout_s elapses.
-    - HALF_OPEN: one trial call is allowed through; success -> CLOSED,
-      failure -> OPEN again (with the timeout restarted).
-    """
 
     def __init__(self, failure_threshold: int = 5, reset_timeout_s: float = 30.0, name: str = "circuit"):
+        """Initialize breaker with failure count threshold and cooldown timeout."""
         self.failure_threshold = failure_threshold
         self.reset_timeout_s = reset_timeout_s
         self.name = name
@@ -40,16 +27,19 @@ class CircuitBreaker:
 
     @property
     def state(self) -> str:
+        """Current operational state of the circuit breaker."""
         with self._lock:
             return self._resolve_state()
 
     def _resolve_state(self) -> str:
+        """Evaluate and transition OPEN state to HALF_OPEN after timeout."""
         if self._state == "OPEN" and (time.time() - self._opened_at) >= self.reset_timeout_s:
             self._state = "HALF_OPEN"
             log.warning("Circuit '%s' transitioning OPEN -> HALF_OPEN (trial call allowed)", self.name)
         return self._state
 
     def call(self, func, *args, **kwargs):
+        """Execute func within breaker guard, raising CircuitBreakerOpenError if OPEN."""
         with self._lock:
             state = self._resolve_state()
             if state == "OPEN":
@@ -67,6 +57,7 @@ class CircuitBreaker:
             return result
 
     def _record_success(self):
+        """Record a successful operation and transition to CLOSED."""
         with self._lock:
             if self._state != "CLOSED":
                 log.info("Circuit '%s' recovered -> CLOSED", self.name)
@@ -74,6 +65,7 @@ class CircuitBreaker:
             self._failure_count = 0
 
     def _record_failure(self):
+        """Record an operation failure and transition to OPEN if threshold exceeded."""
         with self._lock:
             self._failure_count += 1
             if self._state == "HALF_OPEN" or self._failure_count >= self.failure_threshold:

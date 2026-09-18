@@ -2,13 +2,16 @@
 # Install with: pip install -r requirements.txt
 
 confluent-kafka==2.4.0
-
-# NOTE: the PyPI package for the Apache IoTDB Python native client is
-# published as "apache-iotdb" (imported in code as `from iotdb...`),
-# not "iotdb" -- "iotdb==1.3.3" does not exist on PyPI and pip install
-# would fail. Pinned to the client version matching the apache/iotdb:1.3.3
-# server image used in docker-compose.yml.
 apache-iotdb==1.3.3
-
-# .env file loading for scripts run outside Docker
 python-dotenv==1.0.1
+requests==2.32.3
+psycopg[binary]==3.2.3
+httpx==0.27.2
+psycopg-pool==3.2.3
+kafka-python==2.0.2
+paho-mqtt==2.1.0
+lz4==4.3.3
+matplotlib
+pandas
+reportlab
+

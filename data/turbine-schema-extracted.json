@@ -1,0 +1,1963 @@
+{
+  "metadata": {
+    "source_pdf": "data/UI_r6_DigitalTwin.pdf",
+    "pdf_page_count": 2,
+    "page_dimensions_pts": {
+      "width": 960.0,
+      "height": 540.0,
+      "aspect_ratio": "16:9"
+    },
+    "graphic_type": "Pure Vector Art (PowerPoint export, no raster images)",
+    "source_csv": "data/20260812_NI_DAQ_TEST_LOG_DigitalTwin.csv",
+    "csv_column_count": 62,
+    "sensor_count_total": 61,
+    "sensors_on_pdf_schematic": 43,
+    "sensors_auxiliary_telemetry_only": 18,
+    "thingsboard_version": "ThingsBoard Community Edition v4.3.1.4",
+    "thingsboard_recommended_widget": "Thingsboard Custom HTML/CSS/JS/SVG Widget (supports 1s WebSocket, dynamic SVG DOM manipulation, CSS transforms for RPM-driven rotor rotation, and rich popover panels)"
+  },
+  "headline_sensors": [
+    "TURBINE_SPEED_RPM",
+    "GB_TRQ",
+    "PYRO_T",
+    "PYRO_GB",
+    "PT_109A",
+    "FT_110A",
+    "PT_150A",
+    "XT_600",
+    "XT_601",
+    "XT_604",
+    "XT_605",
+    "ZT_600"
+  ],
+  "components": [
+    {
+      "component_id": "turbine-rotor-hub",
+      "display_name": "Turbine Rotor & Core",
+      "subsystem": "Turbine Core",
+      "schematic_page": 1,
+      "bounding_box": [
+        360,
+        200,
+        480,
+        340
+      ],
+      "primary_sensors": [
+        "TURBINE_SPEED_RPM",
+        "PYRO_T"
+      ],
+      "associated_sensors": [
+        "TURBINE_SPEED_RPM",
+        "PYRO_T",
+        "PT_111C",
+        "TT_111C",
+        "TT_111C_R"
+      ]
+    },
+    {
+      "component_id": "inlet-steam-esv",
+      "display_name": "Inlet Steam & Emergency Stop Valve",
+      "subsystem": "Inlet / Valves",
+      "schematic_page": 1,
+      "bounding_box": [
+        100,
+        80,
+        260,
+        220
+      ],
+      "primary_sensors": [
+        "PT_109A",
+        "FT_110A",
+        "TT_109A"
+      ],
+      "associated_sensors": [
+        "PT_109A",
+        "PT_110A",
+        "PT_110B",
+        "TT_109A",
+        "FT_110A",
+        "PT_111B"
+      ]
+    },
+    {
+      "component_id": "actuator-control",
+      "display_name": "Hydraulic Actuator / Pitch Control",
+      "subsystem": "Actuator & Controls",
+      "schematic_page": 1,
+      "bounding_box": [
+        180,
+        190,
+        300,
+        260
+      ],
+      "primary_sensors": [
+        "ACT_POS_FB",
+        "HP_DEMAND"
+      ],
+      "associated_sensors": [
+        "ACT_POS_FB",
+        "HP_DEMAND",
+        "PT_150A",
+        "PT_150B",
+        "TT_150A",
+        "TT_150B"
+      ]
+    },
+    {
+      "component_id": "throttle-valves",
+      "display_name": "Throttle Valves TV1 & TV2",
+      "subsystem": "Valves",
+      "schematic_page": 1,
+      "bounding_box": [
+        340,
+        130,
+        470,
+        210
+      ],
+      "primary_sensors": [
+        "PT_111",
+        "PT_112"
+      ],
+      "associated_sensors": [
+        "PT_111",
+        "TT_111",
+        "PT_112",
+        "TT_112"
+      ]
+    },
+    {
+      "component_id": "wheel-case-casing",
+      "display_name": "Wheel Case & Inter GBC",
+      "subsystem": "Casing",
+      "schematic_page": 1,
+      "bounding_box": [
+        260,
+        400,
+        440,
+        490
+      ],
+      "primary_sensors": [
+        "PT_120",
+        "TT_120"
+      ],
+      "associated_sensors": [
+        "PT_120",
+        "TT_120",
+        "TT_120_R",
+        "PT_111C",
+        "TT_111C",
+        "TT_111C_R"
+      ]
+    },
+    {
+      "component_id": "gearbox",
+      "display_name": "Gearbox (GB)",
+      "subsystem": "Gearbox",
+      "schematic_page": 1,
+      "bounding_box": [
+        580,
+        100,
+        680,
+        240
+      ],
+      "primary_sensors": [
+        "GB_TRQ",
+        "PYRO_GB"
+      ],
+      "associated_sensors": [
+        "GB_TRQ",
+        "PYRO_GB",
+        "TT_109A",
+        "TT_110A",
+        "TT_110B",
+        "XT_604",
+        "XT_605",
+        "XT_606",
+        "XT_607"
+      ]
+    },
+    {
+      "component_id": "dyno-generator",
+      "display_name": "Dynamometer / Generator",
+      "subsystem": "Generator / Dyno",
+      "schematic_page": 1,
+      "bounding_box": [
+        700,
+        220,
+        830,
+        350
+      ],
+      "primary_sensors": [
+        "DYNO_WATER_O_L",
+        "PT_253"
+      ],
+      "associated_sensors": [
+        "DYNO_WATER_O_L",
+        "PT_253",
+        "RTD_219A",
+        "RTD_219B",
+        "RTD_220",
+        "RTD_221"
+      ]
+    },
+    {
+      "component_id": "leakage-systems",
+      "display_name": "Lube Oil & Leakage Lines 1-3",
+      "subsystem": "Lubrication / Leakage",
+      "schematic_page": 1,
+      "bounding_box": [
+        10,
+        320,
+        230,
+        530
+      ],
+      "primary_sensors": [
+        "PT_160",
+        "PT_161",
+        "PT_162"
+      ],
+      "associated_sensors": [
+        "PT_160",
+        "TT_160",
+        "PT_161",
+        "TT_161",
+        "PT_162",
+        "TT_162",
+        "FT_162"
+      ]
+    },
+    {
+      "component_id": "exhaust-hydraulics",
+      "display_name": "Exhaust & Hydraulic Power Unit",
+      "subsystem": "Exhaust / Hydraulics",
+      "schematic_page": 1,
+      "bounding_box": [
+        510,
+        390,
+        650,
+        520
+      ],
+      "primary_sensors": [
+        "PT_163",
+        "PT_150A"
+      ],
+      "associated_sensors": [
+        "PT_163",
+        "TT_163",
+        "PT_150A",
+        "PT_150B",
+        "TT_150A",
+        "TT_150B"
+      ]
+    },
+    {
+      "component_id": "turbovisory-vibration",
+      "display_name": "Turbovisory Vibration Monitoring System",
+      "subsystem": "Vibration",
+      "schematic_page": 2,
+      "bounding_box": [
+        0,
+        340,
+        960,
+        500
+      ],
+      "primary_sensors": [
+        "ZT_600",
+        "ZT_601",
+        "XT_600",
+        "XT_601",
+        "XT_604",
+        "XT_605"
+      ],
+      "associated_sensors": [
+        "ZT_600",
+        "ZT_601",
+        "XT_600",
+        "XT_601",
+        "XT_602",
+        "XT_603",
+        "XT_604",
+        "XT_605",
+        "XT_606",
+        "XT_607"
+      ]
+    },
+    {
+      "component_id": "auxiliary-ambient",
+      "display_name": "Nacelle, Tower & Cooling Auxiliaries",
+      "subsystem": "Auxiliary",
+      "schematic_page": null,
+      "bounding_box": null,
+      "primary_sensors": [
+        "RTD_200",
+        "RTD_204"
+      ],
+      "associated_sensors": [
+        "RTD_200",
+        "RTD_201",
+        "RTD_202",
+        "RTD_203",
+        "RTD_204",
+        "RTD_205",
+        "PT_201",
+        "PT_153"
+      ]
+    }
+  ],
+  "sensors": [
+    {
+      "measurement": "PT_109A",
+      "display_name": "Inlet Pressure A",
+      "category": "pressure",
+      "subsystem": "Inlet Steam",
+      "pdf_reference": {
+        "label": "PT 109",
+        "page": 1,
+        "position_center_px": [
+          155.2,
+          145.2
+        ],
+        "pdf_unit": "bar"
+      },
+      "csv_reference": {
+        "header": "PT_109A (bar)",
+        "unit": "bar"
+      },
+      "iotdb_reference": {
+        "measurement": "PT_109A",
+        "datatype": "FLOAT",
+        "encoding": "GORILLA",
+        "compression": "SNAPPY",
+        "unit": "bar"
+      },
+      "status": "EXACT_MATCH",
+      "notes": "Fully reconciled"
+    },
+    {
+      "measurement": "PT_110A",
+      "display_name": "Inlet Pressure B",
+      "category": "pressure",
+      "subsystem": "Inlet Steam (Secondary)",
+      "pdf_reference": {
+        "label": null,
+        "page": null,
+        "position_center_px": null,
+        "pdf_unit": "kg/cm2"
+      },
+      "csv_reference": {
+        "header": "PT_110A (kg/cm2)",
+        "unit": "kg/cm2"
+      },
+      "iotdb_reference": {
+        "measurement": "PT_110A",
+        "datatype": "FLOAT",
+        "encoding": "GORILLA",
+        "compression": "SNAPPY",
+        "unit": "kg/cm2"
+      },
+      "status": "LIVE_TELEMETRY_ONLY",
+      "notes": "Sensor exists in CSV and IoTDB live telemetry, not drawn on PDF schematic diagram"
+    },
+    {
+      "measurement": "PT_110B",
+      "display_name": "Inlet Pressure C",
+      "category": "pressure",
+      "subsystem": "Inlet Steam (Secondary)",
+      "pdf_reference": {
+        "label": null,
+        "page": null,
+        "position_center_px": null,
+        "pdf_unit": "kg/cm2"
+      },
+      "csv_reference": {
+        "header": "PT_110B (kg/cm2)",
+        "unit": "kg/cm2"
+      },
+      "iotdb_reference": {
+        "measurement": "PT_110B",
+        "datatype": "FLOAT",
+        "encoding": "GORILLA",
+        "compression": "SNAPPY",
+        "unit": "kg/cm2"
+      },
+      "status": "LIVE_TELEMETRY_ONLY",
+      "notes": "Sensor exists in CSV and IoTDB live telemetry, not drawn on PDF schematic diagram"
+    },
+    {
+      "measurement": "PT_111B",
+      "display_name": "Stage 1 Pressure B",
+      "category": "pressure",
+      "subsystem": "Emergency Stop Valve (ESV)",
+      "pdf_reference": {
+        "label": "PT111B",
+        "page": 1,
+        "position_center_px": [
+          378.1,
+          120.0
+        ],
+        "pdf_unit": "kg/cm2"
+      },
+      "csv_reference": {
+        "header": "PT_111B (kg/cm2)",
+        "unit": "kg/cm2"
+      },
+      "iotdb_reference": {
+        "measurement": "PT_111B",
+        "datatype": "FLOAT",
+        "encoding": "GORILLA",
+        "compression": "SNAPPY",
+        "unit": "kg/cm2"
+      },
+      "status": "EXACT_MATCH",
+      "notes": "Fully reconciled"
+    },
+    {
+      "measurement": "PT_111",
+      "display_name": "Stage 1 Pressure",
+      "category": "pressure",
+      "subsystem": "Throttle Valve 1 (TV1)",
+      "pdf_reference": {
+        "label": "PT111",
+        "page": 1,
+        "position_center_px": [
+          378.2,
+          168.1
+        ],
+        "pdf_unit": "kg/cm2"
+      },
+      "csv_reference": {
+        "header": "PT_111 (kg/cm2)",
+        "unit": "kg/cm2"
+      },
+      "iotdb_reference": {
+        "measurement": "PT_111",
+        "datatype": "FLOAT",
+        "encoding": "GORILLA",
+        "compression": "SNAPPY",
+        "unit": "kg/cm2"
+      },
+      "status": "EXACT_MATCH",
+      "notes": "Fully reconciled"
+    },
+    {
+      "measurement": "PT_112",
+      "display_name": "Stage 2 Pressure",
+      "category": "pressure",
+      "subsystem": "Throttle Valve 2 (TV2)",
+      "pdf_reference": {
+        "label": "PT112",
+        "page": 1,
+        "position_center_px": [
+          443.8,
+          168.1
+        ],
+        "pdf_unit": "kg/cm2"
+      },
+      "csv_reference": {
+        "header": "PT_112 (kg/cm2)",
+        "unit": "kg/cm2"
+      },
+      "iotdb_reference": {
+        "measurement": "PT_112",
+        "datatype": "FLOAT",
+        "encoding": "GORILLA",
+        "compression": "SNAPPY",
+        "unit": "kg/cm2"
+      },
+      "status": "EXACT_MATCH",
+      "notes": "Fully reconciled"
+    },
+    {
+      "measurement": "PT_162",
+      "display_name": "Lube Oil Pressure",
+      "category": "pressure",
+      "subsystem": "Leakage Line 1",
+      "pdf_reference": {
+        "label": "PT162",
+        "page": 1,
+        "position_center_px": [
+          194.2,
+          464.5
+        ],
+        "pdf_unit": "kg/cm2"
+      },
+      "csv_reference": {
+        "header": "PT_162 (kg/cm2)",
+        "unit": "kg/cm2"
+      },
+      "iotdb_reference": {
+        "measurement": "PT_162",
+        "datatype": "FLOAT",
+        "encoding": "GORILLA",
+        "compression": "SNAPPY",
+        "unit": "kg/cm2"
+      },
+      "status": "EXACT_MATCH",
+      "notes": "Fully reconciled"
+    },
+    {
+      "measurement": "PT_161",
+      "display_name": "Lube Oil Supply Pressure",
+      "category": "pressure",
+      "subsystem": "Leakage Line 2",
+      "pdf_reference": {
+        "label": "PT161",
+        "page": 1,
+        "position_center_px": [
+          137.5,
+          381.7
+        ],
+        "pdf_unit": "kg/cm2"
+      },
+      "csv_reference": {
+        "header": "PT_161 (kg/cm2)",
+        "unit": "kg/cm2"
+      },
+      "iotdb_reference": {
+        "measurement": "PT_161",
+        "datatype": "FLOAT",
+        "encoding": "GORILLA",
+        "compression": "SNAPPY",
+        "unit": "kg/cm2"
+      },
+      "status": "EXACT_MATCH",
+      "notes": "Fully reconciled"
+    },
+    {
+      "measurement": "PT_160",
+      "display_name": "Lube Oil Header Pressure",
+      "category": "pressure",
+      "subsystem": "Leakage Line 3",
+      "pdf_reference": {
+        "label": "PT160",
+        "page": 1,
+        "position_center_px": [
+          52.0,
+          358.5
+        ],
+        "pdf_unit": "kg/cm2"
+      },
+      "csv_reference": {
+        "header": "PT_160 (kg/cm2)",
+        "unit": "kg/cm2"
+      },
+      "iotdb_reference": {
+        "measurement": "PT_160",
+        "datatype": "FLOAT",
+        "encoding": "GORILLA",
+        "compression": "SNAPPY",
+        "unit": "kg/cm2"
+      },
+      "status": "EXACT_MATCH",
+      "notes": "Fully reconciled"
+    },
+    {
+      "measurement": "PT_120",
+      "display_name": "Gearbox Oil Pressure",
+      "category": "pressure",
+      "subsystem": "Wheel Case",
+      "pdf_reference": {
+        "label": "PT_120",
+        "page": 1,
+        "position_center_px": [
+          308.4,
+          445.2
+        ],
+        "pdf_unit": "kg/cm2"
+      },
+      "csv_reference": {
+        "header": "PT 120 (kg/cm2)",
+        "unit": "kg/cm2"
+      },
+      "iotdb_reference": {
+        "measurement": "PT_120",
+        "datatype": "FLOAT",
+        "encoding": "GORILLA",
+        "compression": "SNAPPY",
+        "unit": "kg/cm2"
+      },
+      "status": "EXACT_MATCH",
+      "notes": "Fully reconciled"
+    },
+    {
+      "measurement": "PT_111C",
+      "display_name": "Stage 1 Pressure C",
+      "category": "pressure",
+      "subsystem": "Inter GBC / Turbine Casing",
+      "pdf_reference": {
+        "label": "PT111C",
+        "page": 1,
+        "position_center_px": [
+          403.4,
+          410.8
+        ],
+        "pdf_unit": "kg/cm2"
+      },
+      "csv_reference": {
+        "header": "PT_111C (kg/cm2)",
+        "unit": "kg/cm2"
+      },
+      "iotdb_reference": {
+        "measurement": "PT_111C",
+        "datatype": "FLOAT",
+        "encoding": "GORILLA",
+        "compression": "SNAPPY",
+        "unit": "kg/cm2"
+      },
+      "status": "EXACT_MATCH",
+      "notes": "Fully reconciled"
+    },
+    {
+      "measurement": "PT_153",
+      "display_name": "Seal Gas Pressure",
+      "category": "pressure",
+      "subsystem": "Auxiliary Seal Gas",
+      "pdf_reference": {
+        "label": null,
+        "page": null,
+        "position_center_px": null,
+        "pdf_unit": "kg/cm2"
+      },
+      "csv_reference": {
+        "header": "PT_153 (kg/cm2)",
+        "unit": "kg/cm2"
+      },
+      "iotdb_reference": {
+        "measurement": "PT_153",
+        "datatype": "FLOAT",
+        "encoding": "GORILLA",
+        "compression": "SNAPPY",
+        "unit": "kg/cm2"
+      },
+      "status": "LIVE_TELEMETRY_ONLY",
+      "notes": "Sensor exists in CSV and IoTDB live telemetry, not drawn on PDF schematic diagram"
+    },
+    {
+      "measurement": "PT_163",
+      "display_name": "Lube Oil Return Pressure",
+      "category": "pressure",
+      "subsystem": "Exhaust / Lube Oil Return",
+      "pdf_reference": {
+        "label": "PT163",
+        "page": 1,
+        "position_center_px": [
+          624.0,
+          406.9
+        ],
+        "pdf_unit": "kg/cm2"
+      },
+      "csv_reference": {
+        "header": "PT 163 (kg/cm2)",
+        "unit": "kg/cm2"
+      },
+      "iotdb_reference": {
+        "measurement": "PT_163",
+        "datatype": "FLOAT",
+        "encoding": "GORILLA",
+        "compression": "SNAPPY",
+        "unit": "kg/cm2"
+      },
+      "status": "EXACT_MATCH",
+      "notes": "Fully reconciled"
+    },
+    {
+      "measurement": "PT_150A",
+      "display_name": "Hydraulic Pressure A",
+      "category": "pressure",
+      "subsystem": "Hydraulic System A",
+      "pdf_reference": {
+        "label": "PT150A/B",
+        "page": 1,
+        "position_center_px": [
+          557.5,
+          466.6
+        ],
+        "pdf_unit": "kg/cm2"
+      },
+      "csv_reference": {
+        "header": "PT_150A (kg/cm2)",
+        "unit": "kg/cm2"
+      },
+      "iotdb_reference": {
+        "measurement": "PT_150A",
+        "datatype": "FLOAT",
+        "encoding": "GORILLA",
+        "compression": "SNAPPY",
+        "unit": "kg/cm2"
+      },
+      "status": "EXACT_MATCH",
+      "notes": "Fully reconciled"
+    },
+    {
+      "measurement": "PT_150B",
+      "display_name": "Hydraulic Pressure B",
+      "category": "pressure",
+      "subsystem": "Hydraulic System B",
+      "pdf_reference": {
+        "label": "PT150A/B",
+        "page": 1,
+        "position_center_px": [
+          557.5,
+          466.6
+        ],
+        "pdf_unit": "kg/cm2"
+      },
+      "csv_reference": {
+        "header": "PT_150B (kg/cm2)",
+        "unit": "kg/cm2"
+      },
+      "iotdb_reference": {
+        "measurement": "PT_150B",
+        "datatype": "FLOAT",
+        "encoding": "GORILLA",
+        "compression": "SNAPPY",
+        "unit": "kg/cm2"
+      },
+      "status": "EXACT_MATCH",
+      "notes": "Fully reconciled"
+    },
+    {
+      "measurement": "PT_201",
+      "display_name": "Cooling Water Pressure",
+      "category": "pressure",
+      "subsystem": "Cooling Water System",
+      "pdf_reference": {
+        "label": null,
+        "page": null,
+        "position_center_px": null,
+        "pdf_unit": "kg/cm2"
+      },
+      "csv_reference": {
+        "header": "PT_201 (kg/cm2)",
+        "unit": "kg/cm2"
+      },
+      "iotdb_reference": {
+        "measurement": "PT_201",
+        "datatype": "FLOAT",
+        "encoding": "GORILLA",
+        "compression": "SNAPPY",
+        "unit": "kg/cm2"
+      },
+      "status": "LIVE_TELEMETRY_ONLY",
+      "notes": "Sensor exists in CSV and IoTDB live telemetry, not drawn on PDF schematic diagram"
+    },
+    {
+      "measurement": "PT_253",
+      "display_name": "Dyno Water Pressure",
+      "category": "pressure",
+      "subsystem": "Dyno Water System",
+      "pdf_reference": {
+        "label": null,
+        "page": null,
+        "position_center_px": null,
+        "pdf_unit": "kg/cm2"
+      },
+      "csv_reference": {
+        "header": "PT_253 (kg/cm2)",
+        "unit": "kg/cm2"
+      },
+      "iotdb_reference": {
+        "measurement": "PT_253",
+        "datatype": "FLOAT",
+        "encoding": "GORILLA",
+        "compression": "SNAPPY",
+        "unit": "kg/cm2"
+      },
+      "status": "LIVE_TELEMETRY_ONLY",
+      "notes": "Sensor exists in CSV and IoTDB live telemetry, not drawn on PDF schematic diagram"
+    },
+    {
+      "measurement": "FT_110A",
+      "display_name": "Main Water Flow",
+      "category": "flow",
+      "subsystem": "Inlet Steam",
+      "pdf_reference": {
+        "label": "FT110A",
+        "page": 1,
+        "position_center_px": [
+          155.2,
+          185.6
+        ],
+        "pdf_unit": "TPH"
+      },
+      "csv_reference": {
+        "header": "FT_110A (TPH)",
+        "unit": "TPH"
+      },
+      "iotdb_reference": {
+        "measurement": "FT_110A",
+        "datatype": "FLOAT",
+        "encoding": "GORILLA",
+        "compression": "SNAPPY",
+        "unit": "TPH"
+      },
+      "status": "EXACT_MATCH",
+      "notes": "Fully reconciled"
+    },
+    {
+      "measurement": "FT_162",
+      "display_name": "Lube Oil Flow",
+      "category": "flow",
+      "subsystem": "Leakage Line 1",
+      "pdf_reference": {
+        "label": "FT_162",
+        "page": 1,
+        "position_center_px": [
+          194.2,
+          511.8
+        ],
+        "pdf_unit": "TPH"
+      },
+      "csv_reference": {
+        "header": "FT_162 (TPH)",
+        "unit": "TPH"
+      },
+      "iotdb_reference": {
+        "measurement": "FT_162",
+        "datatype": "FLOAT",
+        "encoding": "GORILLA",
+        "compression": "SNAPPY",
+        "unit": "TPH"
+      },
+      "status": "EXACT_MATCH",
+      "notes": "Fully reconciled"
+    },
+    {
+      "measurement": "TT_109A",
+      "display_name": "Gearbox Bearing Temp A",
+      "category": "temperature",
+      "subsystem": "Inlet Steam / Gearbox Bearing",
+      "pdf_reference": {
+        "label": "TT 109",
+        "page": 1,
+        "position_center_px": [
+          155.2,
+          168.6
+        ],
+        "pdf_unit": "degC"
+      },
+      "csv_reference": {
+        "header": "TT_109A (degC)",
+        "unit": "degC"
+      },
+      "iotdb_reference": {
+        "measurement": "TT_109A",
+        "datatype": "FLOAT",
+        "encoding": "GORILLA",
+        "compression": "SNAPPY",
+        "unit": "degC"
+      },
+      "status": "EXACT_MATCH",
+      "notes": "Fully reconciled"
+    },
+    {
+      "measurement": "TT_110A",
+      "display_name": "Gearbox Bearing Temp B",
+      "category": "temperature",
+      "subsystem": "Gearbox Bearing B",
+      "pdf_reference": {
+        "label": null,
+        "page": null,
+        "position_center_px": null,
+        "pdf_unit": "degC"
+      },
+      "csv_reference": {
+        "header": "TT_110A (degC)",
+        "unit": "degC"
+      },
+      "iotdb_reference": {
+        "measurement": "TT_110A",
+        "datatype": "FLOAT",
+        "encoding": "GORILLA",
+        "compression": "SNAPPY",
+        "unit": "degC"
+      },
+      "status": "LIVE_TELEMETRY_ONLY",
+      "notes": "Sensor exists in CSV and IoTDB live telemetry, not drawn on PDF schematic diagram"
+    },
+    {
+      "measurement": "TT_110B",
+      "display_name": "Gearbox Bearing Temp C",
+      "category": "temperature",
+      "subsystem": "Gearbox Bearing C",
+      "pdf_reference": {
+        "label": null,
+        "page": null,
+        "position_center_px": null,
+        "pdf_unit": "degC"
+      },
+      "csv_reference": {
+        "header": "TT_110B (degC)",
+        "unit": "degC"
+      },
+      "iotdb_reference": {
+        "measurement": "TT_110B",
+        "datatype": "FLOAT",
+        "encoding": "GORILLA",
+        "compression": "SNAPPY",
+        "unit": "degC"
+      },
+      "status": "LIVE_TELEMETRY_ONLY",
+      "notes": "Sensor exists in CSV and IoTDB live telemetry, not drawn on PDF schematic diagram"
+    },
+    {
+      "measurement": "TT_111",
+      "display_name": "Stage 1 Inlet Temp",
+      "category": "temperature",
+      "subsystem": "Throttle Valve 1 (TV1)",
+      "pdf_reference": {
+        "label": "TT111",
+        "page": 1,
+        "position_center_px": [
+          378.2,
+          191.5
+        ],
+        "pdf_unit": "degC"
+      },
+      "csv_reference": {
+        "header": "TT_111 (degC)",
+        "unit": "degC"
+      },
+      "iotdb_reference": {
+        "measurement": "TT_111",
+        "datatype": "FLOAT",
+        "encoding": "GORILLA",
+        "compression": "SNAPPY",
+        "unit": "degC"
+      },
+      "status": "EXACT_MATCH",
+      "notes": "Fully reconciled"
+    },
+    {
+      "measurement": "TT_112",
+      "display_name": "Stage 2 Inlet Temp",
+      "category": "temperature",
+      "subsystem": "Throttle Valve 2 (TV2)",
+      "pdf_reference": {
+        "label": "TT112",
+        "page": 1,
+        "position_center_px": [
+          443.8,
+          191.5
+        ],
+        "pdf_unit": "degC"
+      },
+      "csv_reference": {
+        "header": "TT_112 (degC)",
+        "unit": "degC"
+      },
+      "iotdb_reference": {
+        "measurement": "TT_112",
+        "datatype": "FLOAT",
+        "encoding": "GORILLA",
+        "compression": "SNAPPY",
+        "unit": "degC"
+      },
+      "status": "EXACT_MATCH",
+      "notes": "Fully reconciled"
+    },
+    {
+      "measurement": "TT_162",
+      "display_name": "Lube Oil Temp",
+      "category": "temperature",
+      "subsystem": "Leakage Line 1",
+      "pdf_reference": {
+        "label": "TT162",
+        "page": 1,
+        "position_center_px": [
+          194.2,
+          487.9
+        ],
+        "pdf_unit": "degC"
+      },
+      "csv_reference": {
+        "header": "TT_162 (degC)",
+        "unit": "degC"
+      },
+      "iotdb_reference": {
+        "measurement": "TT_162",
+        "datatype": "FLOAT",
+        "encoding": "GORILLA",
+        "compression": "SNAPPY",
+        "unit": "degC"
+      },
+      "status": "EXACT_MATCH",
+      "notes": "Fully reconciled"
+    },
+    {
+      "measurement": "TT_161",
+      "display_name": "Lube Oil Supply Temp",
+      "category": "temperature",
+      "subsystem": "Leakage Line 2",
+      "pdf_reference": {
+        "label": "TT161",
+        "page": 1,
+        "position_center_px": [
+          137.5,
+          405.0
+        ],
+        "pdf_unit": "degC"
+      },
+      "csv_reference": {
+        "header": "TT_161 (degC)",
+        "unit": "degC"
+      },
+      "iotdb_reference": {
+        "measurement": "TT_161",
+        "datatype": "FLOAT",
+        "encoding": "GORILLA",
+        "compression": "SNAPPY",
+        "unit": "degC"
+      },
+      "status": "EXACT_MATCH",
+      "notes": "Fully reconciled"
+    },
+    {
+      "measurement": "TT_160",
+      "display_name": "Lube Oil Header Temp",
+      "category": "temperature",
+      "subsystem": "Leakage Line 3",
+      "pdf_reference": {
+        "label": "TT160",
+        "page": 1,
+        "position_center_px": [
+          52.0,
+          382.0
+        ],
+        "pdf_unit": "degC"
+      },
+      "csv_reference": {
+        "header": "TT_160 (degC)",
+        "unit": "degC"
+      },
+      "iotdb_reference": {
+        "measurement": "TT_160",
+        "datatype": "FLOAT",
+        "encoding": "GORILLA",
+        "compression": "SNAPPY",
+        "unit": "degC"
+      },
+      "status": "EXACT_MATCH",
+      "notes": "Fully reconciled"
+    },
+    {
+      "measurement": "TT_120_R",
+      "display_name": "Gearbox Oil Return Temp",
+      "category": "temperature",
+      "subsystem": "Wheel Case Return",
+      "pdf_reference": {
+        "label": "TT120/R",
+        "page": 1,
+        "position_center_px": [
+          308.4,
+          463.8
+        ],
+        "pdf_unit": "degC"
+      },
+      "csv_reference": {
+        "header": "TT_120_R (degC)",
+        "unit": "degC"
+      },
+      "iotdb_reference": {
+        "measurement": "TT_120_R",
+        "datatype": "FLOAT",
+        "encoding": "GORILLA",
+        "compression": "SNAPPY",
+        "unit": "degC"
+      },
+      "status": "EXACT_MATCH",
+      "notes": "Fully reconciled"
+    },
+    {
+      "measurement": "TT_120",
+      "display_name": "Gearbox Oil Temp",
+      "category": "temperature",
+      "subsystem": "Wheel Case Supply",
+      "pdf_reference": {
+        "label": "TT120/R",
+        "page": 1,
+        "position_center_px": [
+          308.4,
+          463.8
+        ],
+        "pdf_unit": "degC"
+      },
+      "csv_reference": {
+        "header": "TT_120 (degC)",
+        "unit": "degC"
+      },
+      "iotdb_reference": {
+        "measurement": "TT_120",
+        "datatype": "FLOAT",
+        "encoding": "GORILLA",
+        "compression": "SNAPPY",
+        "unit": "degC"
+      },
+      "status": "EXACT_MATCH",
+      "notes": "Fully reconciled"
+    },
+    {
+      "measurement": "TT_111C",
+      "display_name": "Stage 1 Temp C",
+      "category": "temperature",
+      "subsystem": "Inter GBC / Turbine Casing",
+      "pdf_reference": {
+        "label": "TT111C/R",
+        "page": 1,
+        "position_center_px": [
+          403.4,
+          435.4
+        ],
+        "pdf_unit": "degC"
+      },
+      "csv_reference": {
+        "header": "TT_111C (degC)",
+        "unit": "degC"
+      },
+      "iotdb_reference": {
+        "measurement": "TT_111C",
+        "datatype": "FLOAT",
+        "encoding": "GORILLA",
+        "compression": "SNAPPY",
+        "unit": "degC"
+      },
+      "status": "EXACT_MATCH",
+      "notes": "Fully reconciled"
+    },
+    {
+      "measurement": "TT_111C_R",
+      "display_name": "Stage 1 Return Temp C",
+      "category": "temperature",
+      "subsystem": "Inter GBC Return",
+      "pdf_reference": {
+        "label": "TT111C/R",
+        "page": 1,
+        "position_center_px": [
+          403.4,
+          435.4
+        ],
+        "pdf_unit": "degC"
+      },
+      "csv_reference": {
+        "header": "TT_111C_R (degC)",
+        "unit": "degC"
+      },
+      "iotdb_reference": {
+        "measurement": "TT_111C_R",
+        "datatype": "FLOAT",
+        "encoding": "GORILLA",
+        "compression": "SNAPPY",
+        "unit": "degC"
+      },
+      "status": "EXACT_MATCH",
+      "notes": "Fully reconciled"
+    },
+    {
+      "measurement": "DYNO_WATER_O_L",
+      "display_name": "Dyno Water Outlet Temp",
+      "category": "temperature",
+      "subsystem": "Dyno (Dynamometer)",
+      "pdf_reference": {
+        "label": "Dyno Water O/L",
+        "page": 1,
+        "position_center_px": [
+          795.5,
+          244.0
+        ],
+        "pdf_unit": "degC / kg/cm2"
+      },
+      "csv_reference": {
+        "header": "Dyno Water O/L (kg/cm2)",
+        "unit": "kg/cm2"
+      },
+      "iotdb_reference": {
+        "measurement": "DYNO_WATER_O_L",
+        "datatype": "FLOAT",
+        "encoding": "GORILLA",
+        "compression": "SNAPPY",
+        "unit": "degC"
+      },
+      "status": "EXACT_MATCH",
+      "notes": "Unit divergence: CSV header marks Dyno Water O/L as kg/cm2, sensor_profiles treats as degC"
+    },
+    {
+      "measurement": "TT_163",
+      "display_name": "Lube Oil Return Temp",
+      "category": "temperature",
+      "subsystem": "Exhaust / Lube Oil Return",
+      "pdf_reference": {
+        "label": "TT163",
+        "page": 1,
+        "position_center_px": [
+          624.0,
+          430.2
+        ],
+        "pdf_unit": "degC"
+      },
+      "csv_reference": {
+        "header": "TT_163 (degC)",
+        "unit": "degC"
+      },
+      "iotdb_reference": {
+        "measurement": "TT_163",
+        "datatype": "FLOAT",
+        "encoding": "GORILLA",
+        "compression": "SNAPPY",
+        "unit": "degC"
+      },
+      "status": "EXACT_MATCH",
+      "notes": "Fully reconciled"
+    },
+    {
+      "measurement": "TT_150A",
+      "display_name": "Hydraulic Oil Temp A",
+      "category": "temperature",
+      "subsystem": "Hydraulic System A",
+      "pdf_reference": {
+        "label": "TT150A/B",
+        "page": 1,
+        "position_center_px": [
+          557.5,
+          490.0
+        ],
+        "pdf_unit": "degC"
+      },
+      "csv_reference": {
+        "header": "TT_150A (degC)",
+        "unit": "degC"
+      },
+      "iotdb_reference": {
+        "measurement": "TT_150A",
+        "datatype": "FLOAT",
+        "encoding": "GORILLA",
+        "compression": "SNAPPY",
+        "unit": "degC"
+      },
+      "status": "EXACT_MATCH",
+      "notes": "Fully reconciled"
+    },
+    {
+      "measurement": "TT_150B",
+      "display_name": "Hydraulic Oil Temp B",
+      "category": "temperature",
+      "subsystem": "Hydraulic System B",
+      "pdf_reference": {
+        "label": "TT150A/B",
+        "page": 1,
+        "position_center_px": [
+          557.5,
+          490.0
+        ],
+        "pdf_unit": "degC"
+      },
+      "csv_reference": {
+        "header": "TT_150B (degC)",
+        "unit": "degC"
+      },
+      "iotdb_reference": {
+        "measurement": "TT_150B",
+        "datatype": "FLOAT",
+        "encoding": "GORILLA",
+        "compression": "SNAPPY",
+        "unit": "degC"
+      },
+      "status": "EXACT_MATCH",
+      "notes": "Fully reconciled"
+    },
+    {
+      "measurement": "ZT_600",
+      "display_name": "Gearbox Vibration Z1",
+      "category": "vibration",
+      "subsystem": "Top Casing Axial Vibration",
+      "pdf_reference": {
+        "label": "ZT600",
+        "page": 2,
+        "position_center_px": [
+          51.0,
+          396.8
+        ],
+        "pdf_unit": "mills"
+      },
+      "csv_reference": {
+        "header": "ZT_600 (mills)",
+        "unit": "mills"
+      },
+      "iotdb_reference": {
+        "measurement": "ZT_600",
+        "datatype": "FLOAT",
+        "encoding": "GORILLA",
+        "compression": "SNAPPY",
+        "unit": "mm/s"
+      },
+      "status": "EXACT_MATCH",
+      "notes": "Unit divergence: sensor_profiles uses mm/s, CSV/PDF uses mills (1 mill = 0.001 in)"
+    },
+    {
+      "measurement": "ZT_601",
+      "display_name": "Gearbox Vibration Z2",
+      "category": "vibration",
+      "subsystem": "Bottom Casing Axial Vibration",
+      "pdf_reference": {
+        "label": "ZT601",
+        "page": 2,
+        "position_center_px": [
+          107.4,
+          468.6
+        ],
+        "pdf_unit": "mills"
+      },
+      "csv_reference": {
+        "header": "ZT_601 (mills)",
+        "unit": "mills"
+      },
+      "iotdb_reference": {
+        "measurement": "ZT_601",
+        "datatype": "FLOAT",
+        "encoding": "GORILLA",
+        "compression": "SNAPPY",
+        "unit": "mm/s"
+      },
+      "status": "EXACT_MATCH",
+      "notes": "Unit divergence: sensor_profiles uses mm/s, CSV/PDF uses mills (1 mill = 0.001 in)"
+    },
+    {
+      "measurement": "XT_600",
+      "display_name": "Gearbox Vibration X",
+      "category": "vibration",
+      "subsystem": "Turbine Front X-Axis Radial",
+      "pdf_reference": {
+        "label": "XT600",
+        "page": 2,
+        "position_center_px": [
+          255.1,
+          398.7
+        ],
+        "pdf_unit": "mills"
+      },
+      "csv_reference": {
+        "header": "XT_600 (mills)",
+        "unit": "mills"
+      },
+      "iotdb_reference": {
+        "measurement": "XT_600",
+        "datatype": "FLOAT",
+        "encoding": "GORILLA",
+        "compression": "SNAPPY",
+        "unit": "mm/s"
+      },
+      "status": "EXACT_MATCH",
+      "notes": "Unit divergence: sensor_profiles uses mm/s, CSV/PDF uses mills (1 mill = 0.001 in)"
+    },
+    {
+      "measurement": "XT_601",
+      "display_name": "Gearbox Vibration Y",
+      "category": "vibration",
+      "subsystem": "Turbine Front Y-Axis Radial",
+      "pdf_reference": {
+        "label": "XT601",
+        "page": 2,
+        "position_center_px": [
+          309.4,
+          468.6
+        ],
+        "pdf_unit": "mills"
+      },
+      "csv_reference": {
+        "header": "XT_601 (mills)",
+        "unit": "mills"
+      },
+      "iotdb_reference": {
+        "measurement": "XT_601",
+        "datatype": "FLOAT",
+        "encoding": "GORILLA",
+        "compression": "SNAPPY",
+        "unit": "mm/s"
+      },
+      "status": "EXACT_MATCH",
+      "notes": "Unit divergence: sensor_profiles uses mm/s, CSV/PDF uses mills (1 mill = 0.001 in)"
+    },
+    {
+      "measurement": "XT_602",
+      "display_name": "Generator Vibration X",
+      "category": "vibration",
+      "subsystem": "Turbine Mid/Rear X-Axis Radial",
+      "pdf_reference": {
+        "label": "XT602",
+        "page": 2,
+        "position_center_px": [
+          545.6,
+          468.4
+        ],
+        "pdf_unit": "mills"
+      },
+      "csv_reference": {
+        "header": "XT_602 (mills)",
+        "unit": "mills"
+      },
+      "iotdb_reference": {
+        "measurement": "XT_602",
+        "datatype": "FLOAT",
+        "encoding": "GORILLA",
+        "compression": "SNAPPY",
+        "unit": "mm/s"
+      },
+      "status": "EXACT_MATCH",
+      "notes": "Unit divergence: sensor_profiles uses mm/s, CSV/PDF uses mills (1 mill = 0.001 in)"
+    },
+    {
+      "measurement": "XT_603",
+      "display_name": "Generator Vibration Y",
+      "category": "vibration",
+      "subsystem": "Turbine Mid/Rear Y-Axis Radial",
+      "pdf_reference": {
+        "label": "XT603",
+        "page": 2,
+        "position_center_px": [
+          498.5,
+          401.7
+        ],
+        "pdf_unit": "mills"
+      },
+      "csv_reference": {
+        "header": "XT_603 (mills)",
+        "unit": "mills"
+      },
+      "iotdb_reference": {
+        "measurement": "XT_603",
+        "datatype": "FLOAT",
+        "encoding": "GORILLA",
+        "compression": "SNAPPY",
+        "unit": "mm/s"
+      },
+      "status": "EXACT_MATCH",
+      "notes": "Unit divergence: sensor_profiles uses mm/s, CSV/PDF uses mills (1 mill = 0.001 in)"
+    },
+    {
+      "measurement": "XT_604",
+      "display_name": "Rotor Vibration X",
+      "category": "vibration",
+      "subsystem": "Gearbox Front X-Axis Radial",
+      "pdf_reference": {
+        "label": "XT604",
+        "page": 2,
+        "position_center_px": [
+          682.2,
+          468.3
+        ],
+        "pdf_unit": "mills"
+      },
+      "csv_reference": {
+        "header": "XT 604 (mills)",
+        "unit": "mills"
+      },
+      "iotdb_reference": {
+        "measurement": "XT_604",
+        "datatype": "FLOAT",
+        "encoding": "GORILLA",
+        "compression": "SNAPPY",
+        "unit": "mm/s"
+      },
+      "status": "EXACT_MATCH",
+      "notes": "Unit divergence: sensor_profiles uses mm/s, CSV/PDF uses mills (1 mill = 0.001 in)"
+    },
+    {
+      "measurement": "XT_605",
+      "display_name": "Rotor Vibration Y",
+      "category": "vibration",
+      "subsystem": "Gearbox Front Y-Axis Radial",
+      "pdf_reference": {
+        "label": "XT605",
+        "page": 2,
+        "position_center_px": [
+          626.7,
+          401.7
+        ],
+        "pdf_unit": "mills"
+      },
+      "csv_reference": {
+        "header": "XT 605 (mills)",
+        "unit": "mills"
+      },
+      "iotdb_reference": {
+        "measurement": "XT_605",
+        "datatype": "FLOAT",
+        "encoding": "GORILLA",
+        "compression": "SNAPPY",
+        "unit": "mm/s"
+      },
+      "status": "EXACT_MATCH",
+      "notes": "Unit divergence: sensor_profiles uses mm/s, CSV/PDF uses mills (1 mill = 0.001 in)"
+    },
+    {
+      "measurement": "XT_606",
+      "display_name": "Shaft Vibration X",
+      "category": "vibration",
+      "subsystem": "Gearbox Rear X-Axis Radial",
+      "pdf_reference": {
+        "label": "XT606",
+        "page": 2,
+        "position_center_px": [
+          915.9,
+          468.3
+        ],
+        "pdf_unit": "mills"
+      },
+      "csv_reference": {
+        "header": "XT_606 (mills)",
+        "unit": "mills"
+      },
+      "iotdb_reference": {
+        "measurement": "XT_606",
+        "datatype": "FLOAT",
+        "encoding": "GORILLA",
+        "compression": "SNAPPY",
+        "unit": "mm/s"
+      },
+      "status": "EXACT_MATCH",
+      "notes": "Unit divergence: sensor_profiles uses mm/s, CSV/PDF uses mills (1 mill = 0.001 in)"
+    },
+    {
+      "measurement": "XT_607",
+      "display_name": "Shaft Vibration Y",
+      "category": "vibration",
+      "subsystem": "Gearbox Rear Y-Axis Radial",
+      "pdf_reference": {
+        "label": "XT607",
+        "page": 2,
+        "position_center_px": [
+          844.8,
+          401.7
+        ],
+        "pdf_unit": "mills"
+      },
+      "csv_reference": {
+        "header": "XT 607 (mills)",
+        "unit": "mills"
+      },
+      "iotdb_reference": {
+        "measurement": "XT_607",
+        "datatype": "FLOAT",
+        "encoding": "GORILLA",
+        "compression": "SNAPPY",
+        "unit": "mm/s"
+      },
+      "status": "EXACT_MATCH",
+      "notes": "Unit divergence: sensor_profiles uses mm/s, CSV/PDF uses mills (1 mill = 0.001 in)"
+    },
+    {
+      "measurement": "HP_DEMAND",
+      "display_name": "Hydraulic Power Demand",
+      "category": "operational",
+      "subsystem": "Actuator & Hydraulic Control",
+      "pdf_reference": {
+        "label": null,
+        "page": null,
+        "position_center_px": null,
+        "pdf_unit": "%"
+      },
+      "csv_reference": {
+        "header": "HP DEMAND (%)",
+        "unit": "%"
+      },
+      "iotdb_reference": {
+        "measurement": "HP_DEMAND",
+        "datatype": "FLOAT",
+        "encoding": "GORILLA",
+        "compression": "SNAPPY",
+        "unit": "percent"
+      },
+      "status": "LIVE_TELEMETRY_ONLY",
+      "notes": "Sensor exists in CSV and IoTDB live telemetry, not drawn on PDF schematic diagram"
+    },
+    {
+      "measurement": "ACT_POS_FB",
+      "display_name": "Actuator Position Feedback",
+      "category": "operational",
+      "subsystem": "Actuator Position",
+      "pdf_reference": {
+        "label": "ACT_POS_FB",
+        "page": 1,
+        "position_center_px": [
+          274.0,
+          220.0
+        ],
+        "pdf_unit": "%"
+      },
+      "csv_reference": {
+        "header": "ACT POS_FB (%)",
+        "unit": "%"
+      },
+      "iotdb_reference": {
+        "measurement": "ACT_POS_FB",
+        "datatype": "FLOAT",
+        "encoding": "GORILLA",
+        "compression": "SNAPPY",
+        "unit": "percent"
+      },
+      "status": "EXACT_MATCH",
+      "notes": "Fully reconciled"
+    },
+    {
+      "measurement": "GB_TRQ",
+      "display_name": "Gearbox Torque",
+      "category": "operational",
+      "subsystem": "Gearbox Torque",
+      "pdf_reference": {
+        "label": "GB_TRQ",
+        "page": 1,
+        "position_center_px": [
+          603.6,
+          117.4
+        ],
+        "pdf_unit": "kN.m"
+      },
+      "csv_reference": {
+        "header": "GB_TRQ (kN.m)",
+        "unit": "kN.m"
+      },
+      "iotdb_reference": {
+        "measurement": "GB_TRQ",
+        "datatype": "FLOAT",
+        "encoding": "GORILLA",
+        "compression": "SNAPPY",
+        "unit": "kN.m"
+      },
+      "status": "EXACT_MATCH",
+      "notes": "Fully reconciled"
+    },
+    {
+      "measurement": "PYRO_T",
+      "display_name": "Pyrometer Turbine Temp",
+      "category": "operational",
+      "subsystem": "Pyrometer Turbine (Temp 1)",
+      "pdf_reference": {
+        "label": "PYRO_T",
+        "page": 1,
+        "position_center_px": [
+          604.1,
+          142.6
+        ],
+        "pdf_unit": "degC"
+      },
+      "csv_reference": {
+        "header": "PYRO T (degC)",
+        "unit": "degC"
+      },
+      "iotdb_reference": {
+        "measurement": "PYRO_T",
+        "datatype": "FLOAT",
+        "encoding": "GORILLA",
+        "compression": "SNAPPY",
+        "unit": "degC"
+      },
+      "status": "EXACT_MATCH",
+      "notes": "Fully reconciled"
+    },
+    {
+      "measurement": "PYRO_GB",
+      "display_name": "Pyrometer Gearbox Temp",
+      "category": "operational",
+      "subsystem": "Pyrometer Gearbox (Temp 2)",
+      "pdf_reference": {
+        "label": "PYRO_GB",
+        "page": 1,
+        "position_center_px": [
+          604.1,
+          167.4
+        ],
+        "pdf_unit": "degC"
+      },
+      "csv_reference": {
+        "header": "PYRO GB (degC)",
+        "unit": "degC"
+      },
+      "iotdb_reference": {
+        "measurement": "PYRO_GB",
+        "datatype": "FLOAT",
+        "encoding": "GORILLA",
+        "compression": "SNAPPY",
+        "unit": "degC"
+      },
+      "status": "EXACT_MATCH",
+      "notes": "Fully reconciled"
+    },
+    {
+      "measurement": "TURBINE_SPEED_RPM",
+      "display_name": "Turbine Rotor Speed",
+      "category": "operational",
+      "subsystem": "Turbine Core",
+      "pdf_reference": {
+        "label": "TURBINE SPEED",
+        "page": 1,
+        "position_center_px": [
+          603.4,
+          66.5
+        ],
+        "pdf_unit": "RPM"
+      },
+      "csv_reference": {
+        "header": "TURBINE SPEED (RPM)",
+        "unit": "RPM"
+      },
+      "iotdb_reference": {
+        "measurement": "TURBINE_SPEED_RPM",
+        "datatype": "FLOAT",
+        "encoding": "GORILLA",
+        "compression": "SNAPPY",
+        "unit": "rpm"
+      },
+      "status": "EXACT_MATCH",
+      "notes": "Fully reconciled"
+    },
+    {
+      "measurement": "RTD_219A",
+      "display_name": "Generator Winding Temp A",
+      "category": "temperature",
+      "subsystem": "Generator Winding A",
+      "pdf_reference": {
+        "label": null,
+        "page": null,
+        "position_center_px": null,
+        "pdf_unit": "degC"
+      },
+      "csv_reference": {
+        "header": "RTD_219A (degC)",
+        "unit": "degC"
+      },
+      "iotdb_reference": {
+        "measurement": "RTD_219A",
+        "datatype": "FLOAT",
+        "encoding": "GORILLA",
+        "compression": "SNAPPY",
+        "unit": "degC"
+      },
+      "status": "LIVE_TELEMETRY_ONLY",
+      "notes": "Sensor exists in CSV and IoTDB live telemetry, not drawn on PDF schematic diagram"
+    },
+    {
+      "measurement": "RTD_219B",
+      "display_name": "Generator Winding Temp B",
+      "category": "temperature",
+      "subsystem": "Generator Winding B",
+      "pdf_reference": {
+        "label": null,
+        "page": null,
+        "position_center_px": null,
+        "pdf_unit": "degC"
+      },
+      "csv_reference": {
+        "header": "RTD 219B (degC)",
+        "unit": "degC"
+      },
+      "iotdb_reference": {
+        "measurement": "RTD_219B",
+        "datatype": "FLOAT",
+        "encoding": "GORILLA",
+        "compression": "SNAPPY",
+        "unit": "degC"
+      },
+      "status": "LIVE_TELEMETRY_ONLY",
+      "notes": "Sensor exists in CSV and IoTDB live telemetry, not drawn on PDF schematic diagram"
+    },
+    {
+      "measurement": "RTD_220",
+      "display_name": "Generator Bearing Temp DE",
+      "category": "temperature",
+      "subsystem": "Generator Drive End (DE) Bearing",
+      "pdf_reference": {
+        "label": null,
+        "page": null,
+        "position_center_px": null,
+        "pdf_unit": "degC"
+      },
+      "csv_reference": {
+        "header": "RTD 220 (degC)",
+        "unit": "degC"
+      },
+      "iotdb_reference": {
+        "measurement": "RTD_220",
+        "datatype": "FLOAT",
+        "encoding": "GORILLA",
+        "compression": "SNAPPY",
+        "unit": "degC"
+      },
+      "status": "LIVE_TELEMETRY_ONLY",
+      "notes": "Sensor exists in CSV and IoTDB live telemetry, not drawn on PDF schematic diagram"
+    },
+    {
+      "measurement": "RTD_221",
+      "display_name": "Generator Bearing Temp NDE",
+      "category": "temperature",
+      "subsystem": "Generator Non-Drive End (NDE) Bearing",
+      "pdf_reference": {
+        "label": null,
+        "page": null,
+        "position_center_px": null,
+        "pdf_unit": "degC"
+      },
+      "csv_reference": {
+        "header": "RTD 221 (degC)",
+        "unit": "degC"
+      },
+      "iotdb_reference": {
+        "measurement": "RTD_221",
+        "datatype": "FLOAT",
+        "encoding": "GORILLA",
+        "compression": "SNAPPY",
+        "unit": "degC"
+      },
+      "status": "LIVE_TELEMETRY_ONLY",
+      "notes": "Sensor exists in CSV and IoTDB live telemetry, not drawn on PDF schematic diagram"
+    },
+    {
+      "measurement": "RTD_200",
+      "display_name": "Nacelle Ambient Temp",
+      "category": "temperature",
+      "subsystem": "Nacelle Ambient",
+      "pdf_reference": {
+        "label": null,
+        "page": null,
+        "position_center_px": null,
+        "pdf_unit": "degC"
+      },
+      "csv_reference": {
+        "header": "RTD 200 (degC)",
+        "unit": "degC"
+      },
+      "iotdb_reference": {
+        "measurement": "RTD_200",
+        "datatype": "FLOAT",
+        "encoding": "GORILLA",
+        "compression": "SNAPPY",
+        "unit": "degC"
+      },
+      "status": "LIVE_TELEMETRY_ONLY",
+      "notes": "Sensor exists in CSV and IoTDB live telemetry, not drawn on PDF schematic diagram"
+    },
+    {
+      "measurement": "RTD_202",
+      "display_name": "Cooling Water Inlet Temp",
+      "category": "temperature",
+      "subsystem": "Cooling Water Inlet",
+      "pdf_reference": {
+        "label": null,
+        "page": null,
+        "position_center_px": null,
+        "pdf_unit": "degC"
+      },
+      "csv_reference": {
+        "header": "RTD 202 (degC)",
+        "unit": "degC"
+      },
+      "iotdb_reference": {
+        "measurement": "RTD_202",
+        "datatype": "FLOAT",
+        "encoding": "GORILLA",
+        "compression": "SNAPPY",
+        "unit": "degC"
+      },
+      "status": "LIVE_TELEMETRY_ONLY",
+      "notes": "Sensor exists in CSV and IoTDB live telemetry, not drawn on PDF schematic diagram"
+    },
+    {
+      "measurement": "RTD_203",
+      "display_name": "Cooling Water Outlet Temp",
+      "category": "temperature",
+      "subsystem": "Cooling Water Outlet",
+      "pdf_reference": {
+        "label": null,
+        "page": null,
+        "position_center_px": null,
+        "pdf_unit": "degC"
+      },
+      "csv_reference": {
+        "header": "RTD 203 (degC)",
+        "unit": "degC"
+      },
+      "iotdb_reference": {
+        "measurement": "RTD_203",
+        "datatype": "FLOAT",
+        "encoding": "GORILLA",
+        "compression": "SNAPPY",
+        "unit": "degC"
+      },
+      "status": "LIVE_TELEMETRY_ONLY",
+      "notes": "Sensor exists in CSV and IoTDB live telemetry, not drawn on PDF schematic diagram"
+    },
+    {
+      "measurement": "RTD_204",
+      "display_name": "Main Bearing Temp DE",
+      "category": "temperature",
+      "subsystem": "Main Bearing Drive End (DE)",
+      "pdf_reference": {
+        "label": null,
+        "page": null,
+        "position_center_px": null,
+        "pdf_unit": "degC"
+      },
+      "csv_reference": {
+        "header": "RTD 204 (degC)",
+        "unit": "degC"
+      },
+      "iotdb_reference": {
+        "measurement": "RTD_204",
+        "datatype": "FLOAT",
+        "encoding": "GORILLA",
+        "compression": "SNAPPY",
+        "unit": "degC"
+      },
+      "status": "LIVE_TELEMETRY_ONLY",
+      "notes": "Sensor exists in CSV and IoTDB live telemetry, not drawn on PDF schematic diagram"
+    },
+    {
+      "measurement": "RTD_205",
+      "display_name": "Main Bearing Temp NDE",
+      "category": "temperature",
+      "subsystem": "Main Bearing Non-Drive End (NDE)",
+      "pdf_reference": {
+        "label": null,
+        "page": null,
+        "position_center_px": null,
+        "pdf_unit": "degC"
+      },
+      "csv_reference": {
+        "header": "RTD 205 (degC)",
+        "unit": "degC"
+      },
+      "iotdb_reference": {
+        "measurement": "RTD_205",
+        "datatype": "FLOAT",
+        "encoding": "GORILLA",
+        "compression": "SNAPPY",
+        "unit": "degC"
+      },
+      "status": "LIVE_TELEMETRY_ONLY",
+      "notes": "Sensor exists in CSV and IoTDB live telemetry, not drawn on PDF schematic diagram"
+    },
+    {
+      "measurement": "RTD_201",
+      "display_name": "Tower Base Temp",
+      "category": "temperature",
+      "subsystem": "Tower Base Ambient",
+      "pdf_reference": {
+        "label": null,
+        "page": null,
+        "position_center_px": null,
+        "pdf_unit": "degC"
+      },
+      "csv_reference": {
+        "header": "RTD 201 (degC)",
+        "unit": "degC"
+      },
+      "iotdb_reference": {
+        "measurement": "RTD_201",
+        "datatype": "FLOAT",
+        "encoding": "GORILLA",
+        "compression": "SNAPPY",
+        "unit": "degC"
+      },
+      "status": "LIVE_TELEMETRY_ONLY",
+      "notes": "Sensor exists in CSV and IoTDB live telemetry, not drawn on PDF schematic diagram"
+    }
+  ]
+}

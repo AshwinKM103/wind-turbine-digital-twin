@@ -1,60 +1,26 @@
 {
   "metadata": {
     "version": "1.0",
-    "description": "Fleet topology: which turbines belong to which customer, and each customer's Grafana tenancy. Single source of truth for the IoTDB schema, the Grafana org/datasource/dashboard provisioning and the end-to-end tests -- docker-compose.yml's generator services must mirror it.",
-    "device_path_root": "root.digitaltwin"
+    "description": "Fleet topology: which turbines belong to which customer. Single source of truth for the IoTDB schema and device paths.",
+    "device_path_root": "root.digitaltwin",
+    "naming_theme": "Greek wind deities and geographic locations"
   },
   "customers": [
     {
-      "customer_id": "customer1",
-      "display_name": "Customer1",
-      "grafana_org_id": 2,
-      "grafana_login": "customer1@company.com",
-      "datasource_uid": "iotdb-customer1",
-      "dashboard_uid": "customer1-fleet",
+      "customer_id": "zephyr-energy",
+      "display_name": "Zephyr Energy",
       "sites": [
         {
-          "site_id": "site1",
+          "site_id": "cascade-ridge",
+          "display_name": "Cascade Ridge",
+          "location": "Pacific Northwest",
           "turbines": [
-            { "turbine_id": "turbine01", "health_port": 8101 },
-            { "turbine_id": "turbine02", "health_port": 8102 }
-          ]
-        }
-      ]
-    },
-    {
-      "customer_id": "customer2",
-      "display_name": "Customer2",
-      "grafana_org_id": 3,
-      "grafana_login": "customer2@company.com",
-      "datasource_uid": "iotdb-customer2",
-      "dashboard_uid": "customer2-fleet",
-      "sites": [
-        {
-          "site_id": "site1",
-          "turbines": [
-            { "turbine_id": "turbine03", "health_port": 8103 },
-            { "turbine_id": "turbine04", "health_port": 8104 },
-            { "turbine_id": "turbine05", "health_port": 8105 }
-          ]
-        }
-      ]
-    },
-    {
-      "customer_id": "customer3",
-      "display_name": "Customer3",
-      "grafana_org_id": 4,
-      "grafana_login": "customer3@company.com",
-      "datasource_uid": "iotdb-customer3",
-      "dashboard_uid": "customer3-fleet",
-      "sites": [
-        {
-          "site_id": "site1",
-          "turbines": [
-            { "turbine_id": "turbine06", "health_port": 8106 },
-            { "turbine_id": "turbine07", "health_port": 8107 },
-            { "turbine_id": "turbine08", "health_port": 8108 },
-            { "turbine_id": "turbine09", "health_port": 8109 }
+            {
+              "turbine_id": "boreas",
+              "display_name": "Boreas",
+              "description": "North Wind",
+              "health_port": 8101
+            }
           ]
         }
       ]

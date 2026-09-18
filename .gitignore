@@ -2,37 +2,18 @@
 .env
 .env.local
 .env.*.local
+.env.phase*
 
 # Python
 __pycache__/
 *.py[cod]
-*$py.class
-*.so
-.Python
-build/
-develop-eggs/
-dist/
-downloads/
-eggs/
-.eggs/
-lib/
-lib64/
-parts/
-sdist/
-var/
-wheels/
-*.egg-info/
-.installed.cfg
-*.egg
-pip-log.txt
-pip-delete-this-directory.txt
 .pytest_cache/
-.coverage
-htmlcov/
+.ruff_cache/
+.mypy_cache/
 venv/
 ENV/
 
-# IDE
+# IDE & Editor
 .vscode/
 .idea/
 *.swp
@@ -42,20 +23,35 @@ ENV/
 
 # Docker
 docker-compose.override.yml
-data/
 volumes/
-
-# IoTDB
-data/iotdb/
 
 # Logs
 *.log
 logs/
 
-# OS
-.DS_Store
-Thumbs.db
-
-# Temporary files
+# Temporary & Lock files
 *.tmp
 *.bak
+*.lock
+
+# Provisioning results
+provisioning/results/*.json
+!provisioning/results/.gitkeep
+
+# Security & Credentials
+.secrets/
+/secrets/
+
+# Node & Playwright
+node_modules/
+.playwright-mcp/
+
+# Local agent, tool & MCP dot directories (never store online)
+.agents/
+.claude/
+.codegraph/
+
+# 3D Reconstruction large binaries (CAD sources, raw textures & HDRIs)
+assets/turbine_rebuild/cad_source/
+assets/turbine_rebuild/textures/
+assets/turbine_rebuild/hdri/

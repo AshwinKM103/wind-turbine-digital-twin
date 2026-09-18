@@ -1,30 +1,4 @@
-#!/usr/bin/env python3
-"""
-kafka_consumer.py - Kafka -> IoTDB writer.
-
-Consumes turbine telemetry JSON from Kafka, buffers up to BATCH_SIZE
-records, groups them by IoTDB device path, and flushes each group in a
-single insertTablet call for write efficiency.
-
-One topic carries the whole fleet, so a batch routinely mixes turbines
-and customers. The destination device path
-(root.digitaltwin.<customer_id>.<site_id>.<turbine_id>) is derived from
-each message's own validated identifiers, never from a global config
-value -- that is what keeps one tenant's readings out of another's
-series. Kafka offsets are committed manually, only after the
-IoTDB write for that batch has succeeded -- so a crash mid-batch replays
-those messages rather than silently losing them. Because IoTDB inserts
-are upserts keyed on (device, timestamp), replaying already-written
-records is safe (idempotent): they simply overwrite themselves with
-identical values.
-
-Messages that repeatedly fail to write (bad schema, unrecoverable IoTDB
-error) are forwarded to the DLQ topic instead of being committed silently
-or blocking the consumer forever.
-
-Run with:
-    python kafka_consumer.py
-"""
+"""Kafka to IoTDB consumer and batch writer."""
 
 import json
 import re
@@ -38,15 +12,12 @@ from iotdb.utils.IoTDBConstants import TSDataType
 from iotdb.utils.Tablet import Tablet
 
 from config import Config
-from health_server import start_health_server
-from logging_config import configure_logging
+from infrastructure import configure_logging, start_health_server
 from resilience import CircuitBreaker, CircuitBreakerOpenError
 
 log = configure_logging("kafka-consumer")
 
-# Fixed schema, generated from the same CSV-header sanitization used by
-# synthetic_producer.py -- must stay in the same order as config/iotdb-schema.sql's
-# device template so tablet writes line up with declared measurement types.
+# Fixed schema ordered to align with IoTDB device template and synthetic producer
 MEASUREMENTS = [
     "PT_109A", "PT_110A", "PT_110B", "PT_111B", "PT_111", "PT_112", "PT_162",
     "PT_161", "PT_160", "PT_120", "PT_111C", "PT_153", "PT_163", "PT_150A",
@@ -72,8 +43,7 @@ DATA_TYPES = [
     TSDataType.FLOAT, TSDataType.FLOAT, TSDataType.FLOAT, TSDataType.FLOAT,
     TSDataType.FLOAT, TSDataType.FLOAT, TSDataType.FLOAT, TSDataType.FLOAT,
     TSDataType.FLOAT, TSDataType.FLOAT, TSDataType.FLOAT, TSDataType.FLOAT,
-    # PYRO_T: FLOAT, matching config/iotdb-schema.sql's device template.
-    # test_kafka_consumer.py asserts these types against the DDL.
+    # PYRO_T matches IoTDB device template FLOAT definition
     TSDataType.FLOAT, TSDataType.FLOAT, TSDataType.FLOAT, TSDataType.FLOAT,
     TSDataType.FLOAT, TSDataType.FLOAT, TSDataType.FLOAT, TSDataType.FLOAT,
     TSDataType.FLOAT, TSDataType.FLOAT, TSDataType.FLOAT, TSDataType.FLOAT,
@@ -83,18 +53,16 @@ assert len(MEASUREMENTS) == len(DATA_TYPES) == 62  # 61 sensor channels + seq_no
 
 REQUIRED_PAYLOAD_FIELDS = ("event_time_ms", "customer_id", "turbine_id", "seq_no")
 
-# Tenant/turbine identifiers become IoTDB path segments. Anything outside
-# this character class would let a malicious or buggy producer write outside
-# its own tenant subtree or break path grammar, so identifiers are allow-listed
-# rather than escaped (validate at boundary, reject rather than sanitize).
+# Validates path node identifiers at trust boundary against path injection
 IDENTIFIER_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$")
 
 
 def build_consumer() -> Consumer:
+    """Instantiate configured Kafka consumer with manual commit mode."""
     config = {
         "bootstrap.servers": Config.KAFKA_BOOTSTRAP_SERVERS,
         "group.id": Config.KAFKA_GROUP_ID,
-        "enable.auto.commit": False,        # commit manually, only after a successful IoTDB write
+        "enable.auto.commit": False,  # Manual commit after successful storage write
         "auto.offset.reset": "earliest",
         "isolation.level": "read_committed",
         "max.poll.interval.ms": 300000,
@@ -103,15 +71,12 @@ def build_consumer() -> Consumer:
 
 
 def build_dlq_producer() -> Producer:
+    """Instantiate Kafka producer for Dead Letter Queue routing."""
     return Producer({"bootstrap.servers": Config.KAFKA_BOOTSTRAP_SERVERS, "acks": "all"})
 
 
 def build_iotdb_session(health=None) -> Session:
-    """
-    Open the IoTDB session, retrying with exponential backoff (capped)
-    until IoTDB accepts the connection. Does not return while IoTDB is
-    unreachable.
-    """
+    """Connect to IoTDB with exponential backoff until successful."""
     attempt = 0
     while True:
         attempt += 1
@@ -131,9 +96,7 @@ def build_iotdb_session(health=None) -> Session:
 
 
 def validate_payload(payload: dict) -> None:
-    """Raise ValueError if the message is missing required fields or has
-    the wrong shape. Called at the trust boundary (input from Kafka) before
-    any further processing, per input-validation policy."""
+    """Validate incoming Kafka message structure and identifier constraints."""
     if not isinstance(payload, dict):
         raise ValueError(f"payload is not a JSON object: {type(payload).__name__}")
     missing = [f for f in REQUIRED_PAYLOAD_FIELDS if f not in payload]
@@ -149,33 +112,49 @@ def validate_payload(payload: dict) -> None:
             raise ValueError(f"payload.{field} is not a valid identifier: {value!r}")
 
 
+_UNQUOTED_NODE_PATTERN = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
+
+
+def quote_path_node(node: str) -> str:
+    """Escape and backtick-quote an IoTDB path node if it cannot be unquoted."""
+    if not node:
+        return node
+    if _UNQUOTED_NODE_PATTERN.match(node):
+        return node
+    escaped = node.replace("`", "``")
+    return f"`{escaped}`"
+
+
+def build_device_path(
+    customer_id: str,
+    site_id: str,
+    turbine_id: str,
+    root: str = "root.digitaltwin",
+) -> str:
+    """Build a fully qualified and escaped IoTDB device path."""
+    return (
+        f"{root}."
+        f"{quote_path_node(customer_id)}."
+        f"{quote_path_node(site_id)}."
+        f"{quote_path_node(turbine_id)}"
+    )
+
+
 def device_path_for(payload: dict) -> str:
-    """
-    Build the IoTDB device path this message belongs to:
-        root.digitaltwin.<customer_id>.<site_id>.<turbine_id>
-
-    Derived per message rather than from Config.DEVICE_PATH, so a single
-    consumer fans one Kafka topic out to every turbine in the fleet.
-    Identifiers are validated by validate_payload() before this is called.
-
-    site_id is optional in the payload (older producers predate it); it
-    falls back to the deployment's configured site.
-    """
+    """Construct fully qualified IoTDB device path from payload attributes."""
     site_id = payload.get("site_id") or Config.SITE_ID
     if not isinstance(site_id, str) or not IDENTIFIER_PATTERN.match(site_id):
         raise ValueError(f"payload.site_id is not a valid identifier: {site_id!r}")
-    return (
-        f"{Config.DEVICE_PATH_ROOT}."
-        f"{payload['customer_id']}.{site_id}.{payload['turbine_id']}"
+    return build_device_path(
+        customer_id=payload["customer_id"],
+        site_id=site_id,
+        turbine_id=payload["turbine_id"],
+        root=Config.DEVICE_PATH_ROOT,
     )
 
 
 def payload_to_row(payload: dict):
-    """
-    Map one decoded Kafka message to a (timestamp, values) row aligned to
-    the fixed MEASUREMENTS order. Missing/unexpected metrics are written
-    as None (IoTDB tablet writes support null cells via its bitmap).
-    """
+    """Map telemetry payload metrics to schema-aligned row values."""
     metrics = payload.get("metrics", {})
     values = []
     for name in MEASUREMENTS:
@@ -193,13 +172,7 @@ def payload_to_row(payload: dict):
 def flush_batch_to_iotdb(
     session: Session, breaker: CircuitBreaker, timestamps, rows, device_path: str
 ) -> bool:
-    """Write one device's batch via insertTablet, through the circuit
-    breaker. Returns True on success.
-
-    One tablet targets exactly one device path, so a mixed-turbine Kafka
-    batch must be grouped by device before calling this (see
-    group_by_device).
-    """
+    """Write tablet batch to IoTDB protected by circuit breaker with retries."""
     tablet = Tablet(device_path, MEASUREMENTS, DATA_TYPES, rows, timestamps)
     for attempt in range(1, Config.IOTDB_WRITE_MAX_RETRIES + 1):
         try:
@@ -224,6 +197,7 @@ class BufferedRecord:
     __slots__ = ("device_path", "timestamp", "row", "raw_message")
 
     def __init__(self, device_path: str, timestamp: int, row: list, raw_message) -> None:
+        """Initialize buffered record with metadata, row values, and raw Kafka message."""
         self.device_path = device_path
         self.timestamp = timestamp
         self.row = row
@@ -231,17 +205,7 @@ class BufferedRecord:
 
 
 def group_by_device(records) -> "OrderedDict[str, list[BufferedRecord]]":
-    """
-    Partition a mixed batch into one group per IoTDB device path.
-
-    A single Kafka topic carries every turbine of every customer, so one
-    poll cycle routinely mixes tenants. IoTDB's insertTablet writes to
-    exactly one device, so the batch is split here -- one tablet per
-    device -- instead of the previous single-device assumption, which
-    would have silently written customer2's readings into customer1's
-    series. Insertion order is preserved so the resulting write order is
-    deterministic and reproducible in tests.
-    """
+    """Partition buffered records by device path preserving encounter order."""
     groups: "OrderedDict[str, list[BufferedRecord]]" = OrderedDict()
     for record in records:
         groups.setdefault(record.device_path, []).append(record)
@@ -249,6 +213,7 @@ def group_by_device(records) -> "OrderedDict[str, list[BufferedRecord]]":
 
 
 def send_to_dlq(dlq_producer: Producer, raw_messages, reason: bytes = b"iotdb_write_failed_after_retries"):
+    """Route failed or unparseable messages to Dead Letter Queue topic."""
     for msg in raw_messages:
         try:
             dlq_producer.produce(
@@ -263,6 +228,7 @@ def send_to_dlq(dlq_producer: Producer, raw_messages, reason: bytes = b"iotdb_wr
 
 
 def run_consumer():
+    """Main consumer loop reading Kafka telemetry and writing batches to IoTDB."""
     health = start_health_server(Config.HEALTH_CHECK_PORT, "kafka-consumer")
     health.set_check("kafka_connected", False, "not yet attempted")
     health.set_check("iotdb_connected", False, "not yet attempted")
@@ -298,6 +264,7 @@ def run_consumer():
     processed_total = 0
 
     def flush_current_batch():
+        """Flush in-memory buffered records to IoTDB partitioned by device group."""
         nonlocal buffer, last_flush_time, processed_total
         if not buffer:
             return
@@ -330,12 +297,7 @@ def run_consumer():
 
         health.set_check("iotdb_connected", breaker.state != "OPEN", f"circuit={breaker.state}")
         processed_total += written
-        # Commit past the whole batch, including any device group that
-        # failed: those records are preserved in the DLQ topic for offline
-        # replay rather than retried in an infinite loop against a
-        # possibly-broken schema or a long-down database. Committing the
-        # last message of the batch is safe because offsets within a
-        # partition are monotonic regardless of how the batch was grouped.
+        # Commit past batch; failed groups are preserved in DLQ for offline replay
         consumer.commit(message=buffer[-1].raw_message)
         log.info(
             "Processed batch",
@@ -375,8 +337,7 @@ def run_consumer():
                         ts, row = payload_to_row(payload)
                         buffer.append(BufferedRecord(device_path, ts, row, msg))
                     except (json.JSONDecodeError, ValueError, KeyError) as exc:
-                        # Malformed/invalid message: can't be retried
-                        # meaningfully, send straight to DLQ and commit past it.
+                        # Forward unparseable messages to DLQ and commit offset
                         log.error("Invalid message, sending to DLQ", extra={"error": str(exc)})
                         send_to_dlq(dlq_producer, [msg], reason=b"validation_failed")
                         consumer.commit(msg)

@@ -1,0 +1,37 @@
+{
+  "widgets": [
+    {
+      "id": "turbine-3d-babylon",
+      "name": "Turbine 3D Digital Twin (Babylon.js)",
+      "bundle": "turbine_widgets",
+      "descriptor_file": "turbine-3d-babylon.widget-type.json",
+      "source_file": "turbine-3d-babylon.js"
+    },
+    {
+      "id": "turbine-mimic",
+      "name": "Turbine 2D Mimic SCADA",
+      "bundle": "turbine_widgets",
+      "descriptor_file": "turbine-mimic.widget-type.json",
+      "source_file": "turbine-mimic.js"
+    },
+    {
+      "id": "turbine-threshold-config",
+      "name": "Turbine Threshold Configuration",
+      "bundle": "turbine_widgets",
+      "descriptor_file": "turbine-threshold-config.widget-type.json"
+    },
+    {
+      "id": "turbine-headroom-monitor",
+      "name": "Turbine Headroom Monitor",
+      "bundle": "turbine_widgets",
+      "descriptor_file": "turbine-headroom-monitor.widget-type.json"
+    },
+    {
+      "id": "turbine-orbit-plot",
+      "name": "Shaft Orbit Plot (ECharts)",
+      "bundle": "turbine_widgets",
+      "descriptor_file": "turbine-orbit-plot.widget-type.json",
+      "source_file": "turbine-orbit-plot.js"
+    }
+  ]
+}

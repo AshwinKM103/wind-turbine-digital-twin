@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Babylon 3D Widget Test Harness</title>
+  <style>
+    html, body { margin: 0; padding: 0; width: 100vw; height: 100vh; overflow: hidden; background: #0b1120; }
+    #container { width: 100%; height: 100%; position: relative; }
+  </style>
+  <script src="https://cdn.babylonjs.com/v6.49.0/babylon.js"></script>
+  <script src="https://cdn.babylonjs.com/v6.49.0/gui/babylon.gui.min.js"></script>
+  <script src="https://cdn.babylonjs.com/v6.49.0/loaders/babylonjs.loaders.min.js"></script>
+</head>
+<body>
+  <div id="container"></div>
+
+  <script>
+    window.__errors = [];
+    window.addEventListener('error', function(e) {
+      window.__errors.push(e.message || String(e));
+    });
+    window.addEventListener('unhandledrejection', function(e) {
+      window.__errors.push((e.reason && e.reason.message) || String(e.reason));
+    });
+
+    async function initHarness() {
+      // Fetch widget source
+      const resp = await fetch('/app/thingsboard/widgets/turbine-3d-babylon.js');
+      const text = await resp.text();
+
+      // Extract HTML
+      const htmlMatch = text.match(/const TEMPLATE_HTML = `([\s\S]*?)`;/);
+      const cssMatch = text.match(/const TEMPLATE_CSS = `([\s\S]*?)`;/);
+      const controllerStart = text.indexOf('// CONTROLLER_SCRIPT_START');
+      const controllerEnd = text.indexOf('// CONTROLLER_SCRIPT_END');
+      const controllerJs = text.substring(controllerStart + '// CONTROLLER_SCRIPT_START'.length, controllerEnd);
+
+      // Inject CSS
+      const styleEl = document.createElement('style');
+      styleEl.textContent = cssMatch[1];
+      document.head.appendChild(styleEl);
+
+      // Inject HTML
+      const container = document.getElementById('container');
+      container.innerHTML = htmlMatch[1];
+
+      // Setup mock ThingsBoard context
+      window.__stateHistory = [];
+      const mockCtx = {
+        $container: [container],
+        settings: {
+          modelUrl: '/data/turbine_rig_prototype.glb',
+          cameraPosition: { alpha: -1.2, beta: 1.1, radius: 9 }
+        },
+        stateController: {
+          updateState: function(id, params, openRightLayout) {
+            window.__lastState = params;
+            window.__stateHistory.push(params);
+          },
+          getStateParams: function() {
+            return window.__lastState || {};
+          }
+        },
+        actionsApi: {
+          getActionDescriptors: function() { return []; },
+          handleWidgetAction: function() {}
+        },
+        data: []
+      };
+
+      // Expose globally
+      window.self = window;
+      window.ctx = mockCtx;
+
+      // Execute controller script in global scope so functions are globally exposed
+      window.eval(controllerJs);
+
+      // Call onInit
+      window.onInit();
+
+      // Signal ready
+      window.__widgetReady = true;
+    }
+
+    window.__initPromise = initHarness();
+  </script>
+</body>
+</html>
