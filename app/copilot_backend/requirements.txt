@@ -1,0 +1,12 @@
+# Copilot backend dependencies
+# Install with: pip install -r app/copilot_backend/requirements.txt
+
+fastapi==0.141.1
+uvicorn[standard]==0.53.0
+openai==1.109.1
+psycopg[binary]==3.2.10
+pydantic==2.13.5
+sse-starlette==3.4.11
+requests==2.32.3
+numpy==1.26.4
+scikit-learn==1.5.1
