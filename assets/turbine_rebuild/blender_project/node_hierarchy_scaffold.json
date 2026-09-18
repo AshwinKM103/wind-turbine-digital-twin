@@ -1,0 +1,220 @@
+{
+  "Turbine_Assembly": {
+    "description": "Tapered wheel-case (≥48-sided), inlet nozzle group, wheel-case body, carbon-ring gland housings, leak-off nozzles, two journal-bearing housings with X-Y probe stems, coupling stub; Turbine_Shaft as child for spin animation.",
+    "children": [
+      {
+        "node_name": "Turbine_Shaft",
+        "type": "shaft"
+      }
+    ]
+  },
+  "Admission_Assembly": {
+    "description": "ESV (trip-throttle globe body + actuator + positioner), TV1, TV2, steam chest, insulated inlet line, PT109/TT109/FT110 fittings.",
+    "available_cad_source": "assets/turbine_rebuild/cad_source/globe_valve/ (IGES ready) and assets/turbine_rebuild/cad_source/gate_valve/ (STEP + IGES ready) — globe valve is the primary match for ESV/TV1/TV2 trip-throttle bodies",
+    "children": [
+      {
+        "node_name": "tag_PT109",
+        "tag": "PT109",
+        "type": "pressure"
+      },
+      {
+        "node_name": "tag_TT109",
+        "tag": "TT109",
+        "type": "temperature"
+      },
+      {
+        "node_name": "tag_FT110",
+        "tag": "FT110",
+        "type": "flow"
+      },
+      {
+        "node_name": "tag_PT108",
+        "tag": "PT108",
+        "type": "pressure"
+      },
+      {
+        "node_name": "tag_ACT_POS_FB",
+        "tag": "ACT_POS_FB",
+        "type": "actuator_position"
+      },
+      {
+        "node_name": "tag_PT111",
+        "tag": "PT111",
+        "type": "pressure"
+      },
+      {
+        "node_name": "tag_TT111",
+        "tag": "TT111",
+        "type": "temperature"
+      },
+      {
+        "node_name": "tag_PT112",
+        "tag": "PT112",
+        "type": "pressure"
+      },
+      {
+        "node_name": "tag_TT112",
+        "tag": "TT112",
+        "type": "temperature"
+      }
+    ]
+  },
+  "Gearbox_Assembly": {
+    "description": "Parallel-shaft helical casing with split-line and inspection covers, input/output shaft stubs, inter-GBC taps (PT161/163, TT161/163), input/output X-Y probes (XT604-607).",
+    "available_cad_source": "assets/turbine_rebuild/cad_source/gearbox_single_stage_helical/ (SolidWorks native only — needs STEP/IGES conversion before Blender import)",
+    "children": [
+      {
+        "node_name": "tag_PT161",
+        "tag": "PT161",
+        "type": "pressure"
+      },
+      {
+        "node_name": "tag_PT163",
+        "tag": "PT163",
+        "type": "pressure"
+      },
+      {
+        "node_name": "tag_TT161",
+        "tag": "TT161",
+        "type": "temperature"
+      },
+      {
+        "node_name": "tag_TT163",
+        "tag": "TT163",
+        "type": "temperature"
+      },
+      {
+        "node_name": "tag_GB_TRQ",
+        "tag": "GB_TRQ",
+        "type": "torque"
+      },
+      {
+        "node_name": "probe_XT604",
+        "tag": "XT604",
+        "type": "vibration_radial"
+      },
+      {
+        "node_name": "probe_XT605",
+        "tag": "XT605",
+        "type": "vibration_radial"
+      },
+      {
+        "node_name": "probe_XT606",
+        "tag": "XT606",
+        "type": "vibration_radial"
+      },
+      {
+        "node_name": "probe_XT607",
+        "tag": "XT607",
+        "type": "vibration_radial"
+      }
+    ]
+  },
+  "Dyno_Assembly": {
+    "description": "Eddy-current or water-brake housing on its own pedestal, coupling to gearbox output, torque/speed/power readout head.",
+    "children": []
+  },
+  "Exhaust_Assembly": {
+    "description": "Exhaust down-leg with PT150A/B, TT150A/B taps.",
+    "children": [
+      {
+        "node_name": "tag_PT150A",
+        "tag": "PT150A",
+        "type": "pressure"
+      },
+      {
+        "node_name": "tag_PT150B",
+        "tag": "PT150B",
+        "type": "pressure"
+      },
+      {
+        "node_name": "tag_TT150A",
+        "tag": "TT150A",
+        "type": "temperature"
+      },
+      {
+        "node_name": "tag_TT150B",
+        "tag": "TT150B",
+        "type": "temperature"
+      }
+    ]
+  },
+  "Leakage_System": {
+    "description": "L1-L3 drain nozzles, small lines, collection pots, FT162 flow element.",
+    "children": [
+      {
+        "node_name": "tag_PT160",
+        "tag": "PT160",
+        "type": "pressure"
+      },
+      {
+        "node_name": "tag_PT162",
+        "tag": "PT162",
+        "type": "pressure"
+      }
+    ]
+  },
+  "Baseplate": {
+    "description": "Fabricated soleplate with pedestals and anchor bolts; grounds the entire turbine/gearbox/dyno train.",
+    "children": []
+  },
+  "Sensors": {
+    "description": "Empty parent holding named anchor nodes for all process transmitters and vibration probes; ThingsBoard binds telemetry by exact mesh_name.",
+    "children": [
+      {
+        "node_name": "tag_PYRO_T",
+        "tag": "PYRO_T",
+        "type": "temperature"
+      },
+      {
+        "node_name": "tag_PT120",
+        "tag": "PT120",
+        "type": "pressure"
+      },
+      {
+        "node_name": "tag_TT120",
+        "tag": "TT120",
+        "type": "temperature"
+      },
+      {
+        "node_name": "tag_FT162",
+        "tag": "FT162",
+        "type": "flow"
+      },
+      {
+        "node_name": "probe_ZT600",
+        "tag": "ZT600",
+        "type": "vibration_axial"
+      },
+      {
+        "node_name": "probe_ZT601",
+        "tag": "ZT601",
+        "type": "vibration_axial"
+      },
+      {
+        "node_name": "probe_XT600",
+        "tag": "XT600",
+        "type": "vibration_radial"
+      },
+      {
+        "node_name": "probe_XT601",
+        "tag": "XT601",
+        "type": "vibration_radial"
+      },
+      {
+        "node_name": "probe_XT602",
+        "tag": "XT602",
+        "type": "vibration_radial"
+      },
+      {
+        "node_name": "probe_XT603",
+        "tag": "XT603",
+        "type": "vibration_radial"
+      }
+    ]
+  },
+  "Environment": {
+    "description": "Floor, optional control-cell backdrop, HDRI-lit.",
+    "children": []
+  }
+}
